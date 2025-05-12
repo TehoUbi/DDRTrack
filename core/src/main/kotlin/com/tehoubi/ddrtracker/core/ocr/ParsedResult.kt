@@ -1,0 +1,72 @@
+package com.tehoubi.ddrtracker.core.ocr
+
+import com.tehoubi.ddrtracker.core.model.ClearLamp
+import com.tehoubi.ddrtracker.core.model.Difficulty
+import com.tehoubi.ddrtracker.core.model.Grade
+import com.tehoubi.ddrtracker.core.model.Judgments
+import com.tehoubi.ddrtracker.core.model.PlayStyle
+
+/** A value read off the screen, with how sure the parser is of it (0..1). */
+data class Field<out T>(val value: T, val confidence: Float)
+
+/** The labelled rows of the result screen's stats table. */
+enum class StatLabel(vararg val spellings: String) {
+    MARVELOUS("MARVELOUS"),
+    PERFECT("PERFECT"),
+    GREAT("GREAT"),
+    GOOD("GOOD"),
+    OK("OK", "O.K."),
+    MISS("MISS"),
+    MAX_COMBO("MAX COMBO", "MAXCOMBO"),
+    EX_SCORE("EX SCORE", "EXSCORE"),
+    FAST("FAST"),
+    SLOW("SLOW"),
+    SCORE("SCORE");
+
+    val isJudgment: Boolean get() = this in JUDGMENTS
+
+    companion object {
+        val JUDGMENTS = listOf(MARVELOUS, PERFECT, GREAT, GOOD, OK, MISS)
+    }
+}
+
+data class ParsedResult(
+    val title: Field<String>? = null,
+    val artist: Field<String>? = null,
+    val style: Field<PlayStyle>? = null,
+    val difficulty: Field<Difficulty>? = null,
+    val level: Field<Int>? = null,
+    val score: Field<Int>? = null,
+    val stats: Map<StatLabel, Field<Int>> = emptyMap(),
+    val grade: Field<Grade>? = null,
+    val lamp: Field<ClearLamp>? = null,
+    val failed: Boolean = false,
+) {
+    val exScore: Field<Int>? get() = stats[StatLabel.EX_SCORE]
+    val maxCombo: Field<Int>? get() = stats[StatLabel.MAX_COMBO]
+
+    /** True once enough of the judgment table is visible to be a result screen. */
+    val looksLikeResultScreen: Boolean
+        get() = StatLabel.JUDGMENTS.count { it in stats } >= 4
+
+    val hasAllJudgments: Boolean get() = StatLabel.JUDGMENTS.all { it in stats }
+
+    /** Judgments, treating unread rows as zero. */
+    fun judgments(): Judgments = Judgments(
+        marvelous = stats[StatLabel.MARVELOUS]?.value ?: 0,
+        perfect = stats[StatLabel.PERFECT]?.value ?: 0,
+        great = stats[StatLabel.GREAT]?.value ?: 0,
+        good = stats[StatLabel.GOOD]?.value ?: 0,
+        ok = stats[StatLabel.OK]?.value ?: 0,
+        miss = stats[StatLabel.MISS]?.value ?: 0,
+    )
+
+    /** Fields the user will have to fill in by hand. */
+    fun missingFields(): List<String> = buildList {
+        if (title == null) add("title")
+        if (difficulty == null) add("difficulty")
+        if (level == null) add("level")
+        if (score == null) add("score")
+        StatLabel.JUDGMENTS.filter { it !in stats }.forEach { add(it.name.lowercase()) }
+    }
+}
