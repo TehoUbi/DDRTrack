@@ -1,0 +1,93 @@
+# Songs the scanner can recognise out of the box, one title per line.
+# Titles the user saves that are not listed here are added on the device.
+1998
+AA
+ACE FOR ACES
+Afronova
+AFRONOVA PRIMEVAL
+AM-3P
+Anti-Matter
+B4U
+Bad Routine
+BRILLIANT 2U
+Butterfly
+CAN'T STOP FALLIN' IN LOVE
+CANDY☆
+CHAOS
+Come to Life
+Cosy Catastrophe
+Cytokinesis
+Dance Dance Revolution
+DEAD END
+Destination
+Draw the Savage
+DROP OUT
+DYNAMITE RAVE
+EGOISM 440
+Electronic or Treat!
+Elemental Creation
+Elysium
+Emera
+ENDYMION
+Fascination MAXX
+Fascination ~eternal love mix~
+Flip Flap
+GRADIUSIC CYBER ~AMD G5 MIX~
+HAPPY☆ANGEL
+Healing Vision
+Healing Vision ~Angelic mix~
+Healing-D-Vision
+INSERTiON
+Lachryma《Re:Queen'M》
+LET'S GET DOWN
+LOVE IS THE POWER -Re:born-
+LOVE SHINE
+MAKE IT BETTER
+MAX 300
+MAX 300 (Super-Max-Me Mix)
+MAX 360
+MAXX UNLIMITED
+Monkey Business
+Neutrino
+New Decade
+ONE MORE LOVELY
+ORION.78 (AMeuro-MIX)
+Over The "Period"
+PARANOiA
+PARANOiA MAX ~DIRTY MIX~
+PARANOiA Rebirth
+PARANOiA Revolution
+PARANOIA EVOLUTION
+PARANOIA survivor
+PARANOIA survivor MAX
+Pluto
+Pluto Relinquish
+Pluto The First
+Possession
+PUT YOUR FAITH IN ME
+RЁVOLUTIФN
+SABER WING
+Sakura Reflection
+Sakura Sunrise
+SANA MOLLETE NE ENTE
+Seta Para Cima↑↑
+SEXY PLANET
+Shiny World
+Show me your moves
+Silent Hill
+Sky High
+SP-TRIP MACHINE～JUNGLE MIX～
+Spanish Snowy Dance
+Sparkle Smilin'
+Starry HEAVEN
+STAY (Organic house Version)
+SUPER STAR
+Trip Machine
+TRIP MACHINE CLIMAX
+TRIP MACHINE PhoeniX
+Truare!
+TSUGARU
+Valkyrie dimension
+Vertigo
+Wow Wow VENUS
+Xepher

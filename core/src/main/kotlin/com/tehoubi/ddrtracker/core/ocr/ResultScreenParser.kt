@@ -8,6 +8,7 @@ import com.tehoubi.ddrtracker.core.model.PlayStyle
 import com.tehoubi.ddrtracker.core.ocr.TextMatching.labelKey
 import com.tehoubi.ddrtracker.core.ocr.TextMatching.levenshtein
 import com.tehoubi.ddrtracker.core.ocr.TextMatching.tolerance
+import com.tehoubi.ddrtracker.core.songs.SongCatalog
 import kotlin.math.abs
 import kotlin.math.pow
 
@@ -19,8 +20,11 @@ import kotlin.math.pow
  * looking for a number on the same row to the right of its label. Targets the
  * A20 PLUS / A3 / WORLD layout but only relies on the labels, not on fixed
  * pixel positions, so photos taken at an angle or cropped still parse.
+ *
+ * With a [catalog], title candidates are matched against known songs and the
+ * catalog's spelling wins; otherwise the raw OCR line is used.
  */
-class ResultScreenParser {
+class ResultScreenParser(private val catalog: SongCatalog? = null) {
 
     internal data class LabelHit(
         val label: StatLabel,
@@ -305,16 +309,37 @@ class ResultScreenParser {
         }.map { it.value }
         if (candidates.isEmpty()) return null
 
-        val title = candidates.maxBy { line ->
+        val ranked = candidates.sortedByDescending { line ->
             val positional = 1f - line.box.top / page.height.toFloat()
             line.box.height * (1f + positional) + line.text.length * 0.5f
         }
+        val known = catalog?.let { matchCatalog(it, ranked) }
+        val title = known?.first ?: ranked.first()
         val artist = candidates
             .filter { it !== title && it.box.top >= title.box.bottom - title.box.height / 4 }
             .filter { it.box.top - title.box.bottom < title.box.height * 2 && it.box.height <= title.box.height }
             .minByOrNull { it.box.top }
+        val titleField = known?.second ?: Field(title.text.trim(), title.confidence * 0.7f)
 
-        return Field(title.text.trim(), title.confidence * 0.7f) to
-            artist?.let { Field(it.text.trim(), it.confidence * 0.6f) }
+        return titleField to artist?.let { Field(it.text.trim(), it.confidence * 0.6f) }
+    }
+
+    /**
+     * Matches candidate lines, and pairs of stacked lines for titles that
+     * wrap, against the catalog. Pairs go first so "Healing Vision" over
+     * "~Angelic mix~" resolves to the full title rather than its prefix.
+     */
+    private fun matchCatalog(catalog: SongCatalog, ranked: List<OcrLine>): Pair<OcrLine, Field<String>>? {
+        val texts = buildList {
+            for (a in ranked) for (b in ranked) {
+                if (a !== b && b.box.top > a.box.top && b.box.top - a.box.bottom < a.box.height &&
+                    abs(b.box.left - a.box.left) < a.box.height * 2
+                ) add(a to "${a.text} ${b.text}")
+            }
+            ranked.forEach { add(it to it.text) }
+        }
+        val match = catalog.bestMatch(texts.map { it.second }) ?: return null
+        val line = texts.first { it.second == match.matchedText }.first
+        return line to Field(match.song.title, (line.confidence * match.similarity).coerceIn(0f, 1f))
     }
 }
