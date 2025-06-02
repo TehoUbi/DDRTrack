@@ -1,10 +1,8 @@
 package com.tehoubi.ddrtracker.ui.screens
 
-import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tehoubi.ddrtracker.domain.repository.ScoreRepository
-import com.tehoubi.ddrtracker.util.OcrScoreParser
+import com.tehoubi.ddrtracker.domain.repository.PlayRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +16,7 @@ data class ScanUiState(
 
 @HiltViewModel
 class ScanViewModel @Inject constructor(
-    private val scoreRepository: ScoreRepository,
+    private val playRepository: PlayRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScanUiState())
@@ -29,8 +27,8 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             // TODO: Capture frame from CameraX, pass bitmap to OcrScoreParser
-            // val score = OcrScoreParser.parseScoreScreen(bitmap, userId)
-            // if (score != null) scoreRepository.saveScore(score)
+            // val play = parse(bitmap) ?: return
+            // playRepository.savePlay(play)
             _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }

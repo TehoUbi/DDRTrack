@@ -10,7 +10,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tehoubi.ddrtracker.ui.components.PlayCard
 
 /**
  * Dashboard — shows recent scores and a summary of personal bests.
@@ -19,10 +21,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun HomeScreen(
     onScanClick: () -> Unit,
-    onScoreClick: (scoreId: String) -> Unit,
+    onPlayClick: (playId: String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -40,7 +42,7 @@ fun HomeScreen(
                     CircularProgressIndicator()
                 }
             }
-            uiState.scores.isEmpty() -> {
+            uiState.plays.isEmpty() -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No scores yet — tap + to scan your first result!")
                 }
@@ -55,17 +57,8 @@ fun HomeScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(uiState.scores, key = { it.id }) { score ->
-                        // TODO: Replace with ScoreCard component
-                        Card(
-                            onClick = { onScoreClick(score.id) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Column(Modifier.padding(16.dp)) {
-                                Text(score.songTitle, style = MaterialTheme.typography.titleMedium)
-                                Text("${score.grade} • ${score.score}", style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
+                    items(uiState.plays, key = { it.id }) { play ->
+                        PlayCard(play = play, onClick = { onPlayClick(play.id) })
                     }
                 }
             }

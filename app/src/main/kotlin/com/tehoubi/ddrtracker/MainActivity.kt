@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
                     composable("home") {
                         HomeScreen(
                             onScanClick = { navController.navigate("scan") },
-                            onScoreClick = { },
+                            onPlayClick = { },
                         )
                     }
                     composable("scan") {
