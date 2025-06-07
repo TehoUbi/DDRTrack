@@ -8,7 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.tehoubi.ddrtracker.ui.screens.HomeScreen
-import com.tehoubi.ddrtracker.ui.screens.ScanScreen
+import com.tehoubi.ddrtracker.ui.review.ReviewScreen
+import com.tehoubi.ddrtracker.ui.scan.ScanScreen
 import com.tehoubi.ddrtracker.ui.theme.DDRTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -28,7 +29,16 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("scan") {
-                        ScanScreen(onScoreConfirmed = { navController.popBackStack() })
+                        ScanScreen(
+                            onBack = { navController.popBackStack() },
+                            onReview = { navController.navigate("review") },
+                        )
+                    }
+                    composable("review") {
+                        ReviewScreen(
+                            onClose = { navController.popBackStack() },
+                            onSaved = { navController.popBackStack("home", inclusive = false) },
+                        )
                     }
                 }
             }
