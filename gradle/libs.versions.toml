@@ -11,6 +11,7 @@ mlkitTextRecognition = "16.0.1"
 firebaseBom = "33.7.0"
 googleServices = "4.4.2"
 room = "2.6.1"
+datastore = "1.1.1"
 hilt = "2.52"
 hiltNavigationCompose = "1.2.0"
 ksp = "2.0.21-1.0.28"
@@ -47,6 +48,8 @@ mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition"
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }

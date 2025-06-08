@@ -79,6 +79,8 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
 
+    implementation(libs.androidx.datastore.preferences)
+
     // Room (local DB)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
