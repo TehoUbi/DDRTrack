@@ -5,7 +5,9 @@ import com.tehoubi.ddrtracker.core.model.Difficulty
 import com.tehoubi.ddrtracker.core.model.Grade
 import com.tehoubi.ddrtracker.core.model.Judgments
 import com.tehoubi.ddrtracker.core.model.PlayStyle
+import com.tehoubi.ddrtracker.core.stats.Session
 import com.tehoubi.ddrtracker.domain.model.Play
+import com.tehoubi.ddrtracker.domain.model.PlaySession
 import com.tehoubi.ddrtracker.domain.model.PlaySource
 import java.time.Instant
 
@@ -26,6 +28,7 @@ fun PlayEntity.toDomain() = Play(
     slow = slow,
     failed = failed,
     playedAt = Instant.ofEpochMilli(playedAt),
+    sessionId = sessionId,
     source = PlaySource.valueOf(source),
     scanConfidence = scanConfidence,
     note = note,
@@ -54,8 +57,33 @@ fun Play.toEntity(updatedAt: Long) = PlayEntity(
     slow = slow,
     failed = failed,
     playedAt = playedAt.toEpochMilli(),
+    sessionId = sessionId,
     source = source.name,
     scanConfidence = scanConfidence,
     note = note,
     updatedAt = updatedAt,
+)
+
+fun Session<Play>.toEntity() = SessionEntity(
+    id = id,
+    startedAt = startedAt.toEpochMilli(),
+    endedAt = endedAt.toEpochMilli(),
+    playCount = playCount,
+    averageScore = averageScore,
+    bestScore = bestScore,
+    averageExRatio = averageExRatio,
+    stepsHit = stepsHit,
+    highestLevel = highestLevel,
+)
+
+fun SessionEntity.toDomain() = PlaySession(
+    id = id,
+    startedAt = Instant.ofEpochMilli(startedAt),
+    endedAt = Instant.ofEpochMilli(endedAt),
+    playCount = playCount,
+    averageScore = averageScore,
+    bestScore = bestScore,
+    averageExRatio = averageExRatio,
+    stepsHit = stepsHit,
+    highestLevel = highestLevel,
 )

@@ -40,6 +40,24 @@ interface PlayDao {
 
     @Query("SELECT COUNT(*) FROM plays WHERE deleted = 0")
     suspend fun count(): Int
+
+    @Query("UPDATE plays SET session_id = :sessionId WHERE id = :id")
+    suspend fun setSession(id: String, sessionId: String)
+}
+
+@Dao
+interface SessionDao {
+    @Query("SELECT * FROM sessions ORDER BY started_at DESC")
+    fun observeAll(): Flow<List<SessionEntity>>
+
+    @Query("SELECT * FROM sessions")
+    suspend fun getAll(): List<SessionEntity>
+
+    @Query("DELETE FROM sessions")
+    suspend fun clear()
+
+    @Upsert
+    suspend fun upsertAll(sessions: List<SessionEntity>)
 }
 
 @Dao

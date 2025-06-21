@@ -50,7 +50,7 @@ class OfflineFirstPlayRepositoryTest {
         repo.savePlay(play("b", at = "2026-04-21T03:00:00Z"))
         val all = repo.observePlays().first()
         assertEquals(listOf("b", "a"), all.map { it.id })
-        assertEquals(play("a"), repo.getPlay("a"))
+        assertEquals(play("a").copy(sessionId = "a"), repo.getPlay("a"))
     }
 
     @Test
@@ -69,6 +69,25 @@ class OfflineFirstPlayRepositoryTest {
         assertNull(repo.getPlay("a"))
         assertEquals(emptyList(), repo.observePlays().first())
         assertEquals(true, db.playDao().getById("a")?.deleted)
+    }
+
+    @Test
+    fun `plays are grouped into sessions`() = runTest {
+        repo.savePlay(play("a", at = "2026-04-20T03:00:00Z"))
+        repo.savePlay(play("b", at = "2026-04-20T03:10:00Z"))
+        repo.savePlay(play("c", at = "2026-04-21T03:00:00Z"))
+        val sessions = repo.observeSessions().first()
+        assertEquals(listOf("c", "a"), sessions.map { it.id })
+        assertEquals(2, sessions.last().playCount)
+        assertEquals("a", repo.getPlay("b")?.sessionId)
+
+        // Back-dating a play before "a" makes it the session's first play.
+        repo.savePlay(play("z", at = "2026-04-20T02:50:00Z"))
+        assertEquals("z", repo.getPlay("b")?.sessionId)
+        assertEquals(listOf("c", "z"), repo.observeSessions().first().map { it.id })
+
+        repo.deletePlay("c")
+        assertEquals(listOf("z"), repo.observeSessions().first().map { it.id })
     }
 
     @Test
