@@ -3,6 +3,7 @@ package com.tehoubi.ddrtracker.ui.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -24,6 +25,7 @@ import com.tehoubi.ddrtracker.ui.chart.ChartScreen
 import com.tehoubi.ddrtracker.ui.history.HistoryScreen
 import com.tehoubi.ddrtracker.ui.home.HomeScreen
 import com.tehoubi.ddrtracker.ui.play.PlayDetailScreen
+import com.tehoubi.ddrtracker.ui.progress.ProgressScreen
 import com.tehoubi.ddrtracker.ui.review.ReviewMode
 import com.tehoubi.ddrtracker.ui.review.ReviewScreen
 import com.tehoubi.ddrtracker.ui.scan.ScanScreen
@@ -32,6 +34,7 @@ import com.tehoubi.ddrtracker.ui.settings.SettingsScreen
 object Routes {
     const val HOME = "home"
     const val HISTORY = "history"
+    const val PROGRESS = "progress"
     const val SCAN = "scan"
     const val SETTINGS = "settings"
     const val REVIEW = "review/{mode}?playId={playId}"
@@ -50,6 +53,7 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 private val tabs = listOf(
     Tab(Routes.HOME, "Home", Icons.Default.Home),
     Tab(Routes.HISTORY, "History", Icons.AutoMirrored.Filled.List),
+    Tab(Routes.PROGRESS, "Progress", Icons.Default.DateRange),
 )
 
 @Composable
@@ -93,6 +97,9 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
             }
             composable(Routes.HISTORY) {
                 HistoryScreen(onPlayClick = { navController.navigate(Routes.play(it)) }, contentPadding = inner)
+            }
+            composable(Routes.PROGRESS) {
+                ProgressScreen(contentPadding = inner)
             }
             composable(Routes.SCAN) {
                 ScanScreen(

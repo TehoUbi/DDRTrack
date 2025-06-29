@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,11 +25,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tehoubi.ddrtracker.ui.charts.ChartPoint
+import com.tehoubi.ddrtracker.ui.charts.LineChart
 import com.tehoubi.ddrtracker.ui.components.PlayCard
 import com.tehoubi.ddrtracker.ui.components.SectionHeader
 import com.tehoubi.ddrtracker.ui.components.StatTile
 import com.tehoubi.ddrtracker.ui.components.color
 import com.tehoubi.ddrtracker.ui.components.formatScore
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+private val dateFormat = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.systemDefault())
 
 @Composable
 fun ChartScreen(
@@ -66,6 +74,21 @@ fun ChartContent(state: ChartUiState, onBack: () -> Unit, onPlayClick: (String) 
                     StatTile("Best", progress.best.score.formatScore(), Modifier.weight(1.4f), accent = progress.best.grade.color())
                     StatTile("Plays", progress.plays.size.toString(), Modifier.weight(1f))
                     StatTile("Gained", "+" + progress.improvement.formatScore(), Modifier.weight(1.2f))
+                }
+            }
+            if (progress.plays.size >= 2) {
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("Score by attempt", style = MaterialTheme.typography.titleMedium)
+                            LineChart(
+                                points = progress.plays.mapIndexed { i, p ->
+                                    ChartPoint(i.toFloat(), p.score.toFloat(), "Attempt ${i + 1} · ${dateFormat.format(p.playedAt)}: ${p.score.formatScore()}")
+                                },
+                                yFormat = { "%.0fk".format(it / 1000) },
+                            )
+                        }
+                    }
                 }
             }
             item { SectionHeader("Every play") }
