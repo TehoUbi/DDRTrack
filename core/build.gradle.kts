@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Pure Kotlin: scoring rules, OCR parsing and stats that both the Android
@@ -10,6 +11,9 @@ kotlin {
 }
 
 dependencies {
+    // Only for the wire models in core.api, shared with the server.
+    api(libs.kotlinx.serialization.json)
+
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
 }

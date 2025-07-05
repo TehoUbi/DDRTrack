@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "DDRPerformanceTracker"
 include(":app")
 include(":core")
+include(":server")
