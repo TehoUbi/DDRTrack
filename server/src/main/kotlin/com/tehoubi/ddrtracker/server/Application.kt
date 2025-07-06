@@ -6,9 +6,11 @@ import com.tehoubi.ddrtracker.core.api.PlayerSummary
 import com.tehoubi.ddrtracker.server.db.Database
 import com.tehoubi.ddrtracker.server.db.DisplayNameTakenException
 import com.tehoubi.ddrtracker.server.db.PlayerRepository
+import com.tehoubi.ddrtracker.server.db.ScoreRepository
 import com.tehoubi.ddrtracker.server.db.query
 import com.tehoubi.ddrtracker.server.routes.REGISTRATION_LIMIT
 import com.tehoubi.ddrtracker.server.routes.playerRoutes
+import com.tehoubi.ddrtracker.server.routes.scoreRoutes
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -44,6 +46,7 @@ fun ApplicationCall.currentPlayer(): PlayerSummary = principal<PlayerPrincipal>(
 /** Everything the routes need, built once in main() or by a test. */
 class Services(val db: Database, val config: ServerConfig) {
     val players = PlayerRepository(db)
+    val scores = ScoreRepository(db)
 }
 
 fun main() {
@@ -96,5 +99,6 @@ fun Application.module(services: Services) {
             )
         }
         playerRoutes(services.players)
+        scoreRoutes(services.players, services.scores)
     }
 }
