@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -22,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tehoubi.ddrtracker.ui.chart.ChartScreen
+import com.tehoubi.ddrtracker.ui.compare.CompareScreen
 import com.tehoubi.ddrtracker.ui.history.HistoryScreen
 import com.tehoubi.ddrtracker.ui.home.HomeScreen
 import com.tehoubi.ddrtracker.ui.play.PlayDetailScreen
@@ -35,6 +37,7 @@ object Routes {
     const val HOME = "home"
     const val HISTORY = "history"
     const val PROGRESS = "progress"
+    const val COMPARE = "compare"
     const val SCAN = "scan"
     const val SETTINGS = "settings"
     const val REVIEW = "review/{mode}?playId={playId}"
@@ -54,6 +57,7 @@ private val tabs = listOf(
     Tab(Routes.HOME, "Home", Icons.Default.Home),
     Tab(Routes.HISTORY, "History", Icons.AutoMirrored.Filled.List),
     Tab(Routes.PROGRESS, "Progress", Icons.Default.DateRange),
+    Tab(Routes.COMPARE, "Compare", Icons.Default.Person),
 )
 
 @Composable
@@ -100,6 +104,13 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
             }
             composable(Routes.PROGRESS) {
                 ProgressScreen(contentPadding = inner)
+            }
+            composable(Routes.COMPARE) {
+                CompareScreen(
+                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOpenChart = { k, st, d -> navController.navigate(Routes.chart(k, st, d)) },
+                    contentPadding = inner,
+                )
             }
             composable(Routes.SCAN) {
                 ScanScreen(

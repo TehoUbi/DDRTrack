@@ -1,11 +1,13 @@
 package com.tehoubi.ddrtracker.data.settings
 
 import android.content.Context
+import com.tehoubi.ddrtracker.core.api.PlayerSummary
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +32,8 @@ data class Settings(
     val account: LeaderboardAccount? = null,
     /** Upload new plays to the leaderboard in the background. */
     val autoSubmit: Boolean = true,
+    /** Players saved on the Compare tab. */
+    val rivals: List<PlayerSummary> = emptyList(),
 )
 
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -47,6 +51,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val token = stringPreferencesKey("api_token")
         val accountServer = stringPreferencesKey("account_server")
         val autoSubmit = booleanPreferencesKey("auto_submit")
+        val rivals = stringSetPreferencesKey("rivals")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
@@ -64,6 +69,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             // An account only counts for the server it was created on.
             account = account?.takeIf { it.serverUrl == p[Keys.serverUrl].orEmpty() && it.token.isNotEmpty() },
             autoSubmit = p[Keys.autoSubmit] ?: true,
+            rivals = p[Keys.rivals].orEmpty().mapNotNull { decodeRival(it) }.sortedBy { it.displayName.lowercase() },
         )
     }
 
@@ -84,7 +90,20 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
 
     suspend fun setDisplayName(name: String) = store.edit { it[Keys.displayName] = name }
 
+    suspend fun addRival(rival: PlayerSummary) = store.edit { p ->
+        val others = p[Keys.rivals].orEmpty().filterNot { decodeRival(it)?.playerId == rival.playerId }
+        p[Keys.rivals] = (others + "${rival.playerId}\t${rival.displayName}").toSet()
+    }
+
+    suspend fun removeRival(playerId: String) = store.edit { p ->
+        p[Keys.rivals] = p[Keys.rivals].orEmpty().filterNot { decodeRival(it)?.playerId == playerId }.toSet()
+    }
+
+    private fun decodeRival(raw: String): PlayerSummary? =
+        raw.split('\t', limit = 2).takeIf { it.size == 2 }?.let { PlayerSummary(it[0], it[1]) }
+
     suspend fun signOut() = store.edit {
         it.remove(Keys.accountServer); it.remove(Keys.playerId); it.remove(Keys.displayName); it.remove(Keys.token)
+        it.remove(Keys.rivals)
     }
 }
