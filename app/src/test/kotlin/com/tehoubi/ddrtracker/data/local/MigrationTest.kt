@@ -25,8 +25,8 @@ class MigrationTest {
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
-    private fun createVersion1(name: String) {
-        val schema = JSONObject(File("schemas/${DdrDatabase::class.qualifiedName}/1.json").readText())
+    private fun createVersion(version: Int, name: String) {
+        val schema = JSONObject(File("schemas/${DdrDatabase::class.qualifiedName}/$version.json").readText())
             .getJSONObject("database")
         val file = context.getDatabasePath(name).apply { parentFile?.mkdirs(); delete() }
         SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
@@ -53,22 +53,36 @@ class MigrationTest {
                     1776654000000, 'MANUAL', NULL, NULL, 1776654000000, 0)
                 """.trimIndent()
             )
-            db.version = 1
+            db.version = version
         }
     }
 
+    private fun open(name: String) = Room.databaseBuilder(context, DdrDatabase::class.java, name)
+        .addMigrations(*DdrDatabase.MIGRATIONS)
+        .allowMainThreadQueries()
+        .build()
+
     @Test
-    fun `1 to 2 keeps plays and adds sessions`() = runTest {
-        createVersion1("migration-test.db")
-        val db = Room.databaseBuilder(context, DdrDatabase::class.java, "migration-test.db")
-            .addMigrations(DdrDatabase.MIGRATION_1_2)
-            .allowMainThreadQueries()
-            .build()
+    fun `1 to current keeps plays and adds sessions and upload state`() = runTest {
+        createVersion(1, "migration-1.db")
+        val db = open("migration-1.db")
         try {
             val play = db.playDao().getById("p1")!!
             assertEquals(951_230, play.score)
             assertNull(play.sessionId)
+            assertEquals(LeaderboardStatus.PENDING, play.leaderboardStatus)
             assertEquals(emptyList(), db.sessionDao().observeAll().first())
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun `2 to current queues existing plays for upload`() = runTest {
+        createVersion(2, "migration-2.db")
+        val db = open("migration-2.db")
+        try {
+            assertEquals(1, db.playDao().pendingUpload(10).size)
         } finally {
             db.close()
         }

@@ -20,7 +20,7 @@ object DataModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): DdrDatabase =
         Room.databaseBuilder(context, DdrDatabase::class.java, DdrDatabase.NAME)
-            .addMigrations(DdrDatabase.MIGRATION_1_2)
+            .addMigrations(*DdrDatabase.MIGRATIONS)
             .build()
 
     @Provides

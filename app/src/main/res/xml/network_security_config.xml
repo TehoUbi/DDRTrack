@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The leaderboard server is self-hosted, often on a home network or a
+    laptop at the arcade with no TLS, so plain HTTP is allowed. Use an
+    https:// URL in settings whenever the server has a certificate.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

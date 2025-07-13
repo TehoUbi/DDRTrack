@@ -20,7 +20,9 @@ class ScoreRepository(private val db: Database, private val clock: Clock = Clock
 
     /**
      * Stores every valid play in one transaction. Grade and lamp are
-     * recomputed here rather than trusted from the client.
+     * recomputed here rather than trusted from the client. Resubmitting a
+     * client id replaces the stored play, which is how edits (usually a
+     * corrected OCR misread) reach the leaderboard.
      */
     suspend fun submit(playerId: String, scores: List<ScoreSubmission>): SubmitScoresResponse = db.transaction {
         val player = UUID.fromString(playerId)
@@ -40,7 +42,12 @@ class ScoreRepository(private val db: Database, private val clock: Clock = Clock
                 INSERT INTO scores (player_id, chart_id, client_id, score, ex_score, grade, lamp,
                     marvelous, perfect, great, good, ok, miss, max_combo, failed, played_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (player_id, client_id) DO NOTHING
+                ON CONFLICT (player_id, client_id) DO UPDATE SET
+                    chart_id = EXCLUDED.chart_id, score = EXCLUDED.score, ex_score = EXCLUDED.ex_score,
+                    grade = EXCLUDED.grade, lamp = EXCLUDED.lamp, marvelous = EXCLUDED.marvelous,
+                    perfect = EXCLUDED.perfect, great = EXCLUDED.great, good = EXCLUDED.good, ok = EXCLUDED.ok,
+                    miss = EXCLUDED.miss, max_combo = EXCLUDED.max_combo, failed = EXCLUDED.failed,
+                    played_at = EXCLUDED.played_at, submitted_at = now()
                 """.trimIndent(),
                 player, chartId, s.clientId, s.score, s.exScore,
                 DdrScoring.grade(s.score, s.failed).name, DdrScoring.lamp(j, s.failed).name,

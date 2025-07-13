@@ -13,6 +13,7 @@ import com.tehoubi.ddrtracker.core.stats.Sessions
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.model.PlaySession
 import com.tehoubi.ddrtracker.domain.repository.PlayRepository
+import com.tehoubi.ddrtracker.sync.SyncTrigger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock
@@ -25,6 +26,7 @@ class OfflineFirstPlayRepository @Inject constructor(
     private val db: DdrDatabase,
     private val bundledCatalog: SongCatalog,
     private val clock: Clock,
+    private val sync: SyncTrigger,
 ) : PlayRepository {
 
     private val plays = db.playDao()
@@ -54,6 +56,7 @@ class OfflineFirstPlayRepository @Inject constructor(
             rememberSong(play, now)
             rebuildSessions()
         }
+        sync.playsChanged()
         play
     }
 
@@ -64,6 +67,7 @@ class OfflineFirstPlayRepository @Inject constructor(
             plays.distinctBy { it.songKey }.forEach { rememberSong(it, now) }
             rebuildSessions()
         }
+        sync.playsChanged()
         plays.size
     }
 
@@ -72,6 +76,7 @@ class OfflineFirstPlayRepository @Inject constructor(
             plays.markDeleted(id, clock.millis())
             rebuildSessions()
         }
+        sync.playsChanged()
     }
 
     private suspend fun rememberSong(play: Play, now: Long) {

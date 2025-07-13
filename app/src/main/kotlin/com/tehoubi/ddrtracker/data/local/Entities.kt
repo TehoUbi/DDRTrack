@@ -43,7 +43,20 @@ data class PlayEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     /** Kept as a tombstone so a deletion can be synced before the row goes. */
     val deleted: Boolean = false,
+    /** Where this play stands with the leaderboard; see [LeaderboardStatus]. */
+    @ColumnInfo(name = "leaderboard_status", defaultValue = "PENDING") val leaderboardStatus: String = LeaderboardStatus.PENDING,
+    @ColumnInfo(name = "leaderboard_error") val leaderboardError: String? = null,
 )
+
+object LeaderboardStatus {
+    /** Saved or edited since the last upload. */
+    const val PENDING = "PENDING"
+    const val SUBMITTED = "SUBMITTED"
+    /** The server (or the same rules checked locally) won't take it; see leaderboard_error. */
+    const val REJECTED = "REJECTED"
+    /** Deleted locally and gone from the server too. */
+    const val REMOVED = "REMOVED"
+}
 
 @Entity(tableName = "user_songs")
 data class UserSongEntity(

@@ -5,32 +5,86 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** The player's leaderboard identity, once registered with a server. */
+data class LeaderboardAccount(
+    val serverUrl: String,
+    val playerId: String,
+    val displayName: String,
+    val token: String,
+)
+
 data class Settings(
     /** Take the still automatically once the live reading settles. */
     val autoCapture: Boolean = true,
+    /** Base URL of the leaderboard service; blank means leaderboards are off. */
+    val serverUrl: String = "",
+    val account: LeaderboardAccount? = null,
+    /** Upload new plays to the leaderboard in the background. */
+    val autoSubmit: Boolean = true,
 )
 
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 @Singleton
-class SettingsRepository @Inject constructor(@ApplicationContext context: Context) {
+class SettingsRepository(private val store: DataStore<Preferences>) {
 
-    private val store = context.dataStore
+    @Inject constructor(@ApplicationContext context: Context) : this(context.settingsDataStore)
 
     private object Keys {
         val autoCapture = booleanPreferencesKey("auto_capture")
+        val serverUrl = stringPreferencesKey("server_url")
+        val playerId = stringPreferencesKey("player_id")
+        val displayName = stringPreferencesKey("display_name")
+        val token = stringPreferencesKey("api_token")
+        val accountServer = stringPreferencesKey("account_server")
+        val autoSubmit = booleanPreferencesKey("auto_submit")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
-        Settings(autoCapture = p[Keys.autoCapture] ?: true)
+        val account = p[Keys.playerId]?.let { id ->
+            LeaderboardAccount(
+                serverUrl = p[Keys.accountServer].orEmpty(),
+                playerId = id,
+                displayName = p[Keys.displayName].orEmpty(),
+                token = p[Keys.token].orEmpty(),
+            )
+        }
+        Settings(
+            autoCapture = p[Keys.autoCapture] ?: true,
+            serverUrl = p[Keys.serverUrl].orEmpty(),
+            // An account only counts for the server it was created on.
+            account = account?.takeIf { it.serverUrl == p[Keys.serverUrl].orEmpty() && it.token.isNotEmpty() },
+            autoSubmit = p[Keys.autoSubmit] ?: true,
+        )
     }
 
+    suspend fun current(): Settings = settings.first()
+
     suspend fun setAutoCapture(enabled: Boolean) = store.edit { it[Keys.autoCapture] = enabled }
+
+    suspend fun setServerUrl(url: String) = store.edit { it[Keys.serverUrl] = url }
+
+    suspend fun setAutoSubmit(enabled: Boolean) = store.edit { it[Keys.autoSubmit] = enabled }
+
+    suspend fun saveAccount(account: LeaderboardAccount) = store.edit {
+        it[Keys.accountServer] = account.serverUrl
+        it[Keys.playerId] = account.playerId
+        it[Keys.displayName] = account.displayName
+        it[Keys.token] = account.token
+    }
+
+    suspend fun setDisplayName(name: String) = store.edit { it[Keys.displayName] = name }
+
+    suspend fun signOut() = store.edit {
+        it.remove(Keys.accountServer); it.remove(Keys.playerId); it.remove(Keys.displayName); it.remove(Keys.token)
+    }
 }

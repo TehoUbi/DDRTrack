@@ -11,6 +11,7 @@ import com.tehoubi.ddrtracker.core.songs.SongCatalog
 import com.tehoubi.ddrtracker.data.local.DdrDatabase
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.model.PlaySource
+import com.tehoubi.ddrtracker.sync.SyncTrigger
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -33,7 +34,10 @@ class OfflineFirstPlayRepositoryTest {
     ).allowMainThreadQueries().build()
 
     private val clock = Clock.fixed(Instant.parse("2026-04-22T04:00:00Z"), ZoneOffset.UTC)
-    private val repo = OfflineFirstPlayRepository(db, SongCatalog.bundled(), clock)
+    private var syncRequests = 0
+    private val repo = OfflineFirstPlayRepository(db, SongCatalog.bundled(), clock, object : SyncTrigger {
+        override fun playsChanged() { syncRequests++ }
+    })
 
     @After fun close() = db.close()
 
@@ -51,6 +55,7 @@ class OfflineFirstPlayRepositoryTest {
         val all = repo.observePlays().first()
         assertEquals(listOf("b", "a"), all.map { it.id })
         assertEquals(play("a").copy(sessionId = "a"), repo.getPlay("a"))
+        assertEquals(2, syncRequests)
     }
 
     @Test

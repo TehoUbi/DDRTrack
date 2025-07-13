@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PlayEntity::class, UserSongEntity::class, SessionEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class DdrDatabase : RoomDatabase() {
@@ -41,5 +41,15 @@ abstract class DdrDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_started_at ON sessions (started_at)")
             }
         }
+
+        /** v3: per-play leaderboard upload state. Existing plays queue for upload. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE plays ADD COLUMN leaderboard_status TEXT NOT NULL DEFAULT 'PENDING'")
+                db.execSQL("ALTER TABLE plays ADD COLUMN leaderboard_error TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
     }
 }

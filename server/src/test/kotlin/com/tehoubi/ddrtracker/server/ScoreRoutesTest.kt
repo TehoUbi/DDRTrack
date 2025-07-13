@@ -71,6 +71,16 @@ class ScoreRoutesTest {
     }
 
     @Test
+    fun `resubmitting an edited play replaces it`() = serverTest { client ->
+        val me = client.register("Tehoubi")
+        client.submit(me.token, play(clientId = "a", misses = 20))
+        client.submit(me.token, play(clientId = "a", misses = 1))
+        val board = client.board()
+        assertEquals(1, board.players)
+        assertEquals(play(misses = 1).score, board.entries.single().score)
+    }
+
+    @Test
     fun `submitting needs a token`() = serverTest { client ->
         val r = client.post("/v1/scores") { contentType(ContentType.Application.Json); setBody(SubmitScoresRequest(listOf(play()))) }
         assertEquals(HttpStatusCode.Unauthorized, r.status)

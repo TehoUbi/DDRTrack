@@ -41,9 +41,33 @@ interface PlayDao {
     @Query("SELECT COUNT(*) FROM plays WHERE deleted = 0")
     suspend fun count(): Int
 
+    /** Live plays not yet on the leaderboard, oldest first. */
+    @Query("SELECT * FROM plays WHERE deleted = 0 AND leaderboard_status = 'PENDING' ORDER BY played_at LIMIT :limit")
+    suspend fun pendingUpload(limit: Int): List<PlayEntity>
+
+    /** Deleted plays the server still has. */
+    @Query("SELECT * FROM plays WHERE deleted = 1 AND leaderboard_status = 'SUBMITTED'")
+    suspend fun pendingRemoval(): List<PlayEntity>
+
+    @Query("UPDATE plays SET leaderboard_status = :status, leaderboard_error = :error WHERE id = :id AND updated_at = :updatedAt")
+    suspend fun setLeaderboardStatus(id: String, updatedAt: Long, status: String, error: String?)
+
+    /** Deleted before ever being uploaded: nothing to tell the server. */
+    @Query("UPDATE plays SET leaderboard_status = 'REMOVED' WHERE deleted = 1 AND leaderboard_status IN ('PENDING', 'REJECTED')")
+    suspend fun dropUnsubmittedTombstones()
+
+    /** Re-queue everything, e.g. after registering on a new server. */
+    @Query("UPDATE plays SET leaderboard_status = 'PENDING', leaderboard_error = NULL WHERE deleted = 0")
+    suspend fun requeueAll()
+
+    @Query("SELECT leaderboard_status AS status, COUNT(*) AS count FROM plays WHERE deleted = 0 GROUP BY leaderboard_status")
+    fun observeLeaderboardCounts(): Flow<List<StatusCount>>
+
     @Query("UPDATE plays SET session_id = :sessionId WHERE id = :id")
     suspend fun setSession(id: String, sessionId: String)
 }
+
+data class StatusCount(val status: String, val count: Int)
 
 @Dao
 interface SessionDao {
