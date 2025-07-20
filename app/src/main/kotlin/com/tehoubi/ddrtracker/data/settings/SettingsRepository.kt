@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -34,6 +35,11 @@ data class Settings(
     val autoSubmit: Boolean = true,
     /** Players saved on the Compare tab. */
     val rivals: List<PlayerSummary> = emptyList(),
+    /** Back the log up to Firestore (only offered when the build has Firebase). */
+    val cloudSync: Boolean = false,
+    val cloudSyncedAt: Long? = null,
+    /** High-water mark of remote updatedAt already pulled. */
+    val cloudPulledAt: Long = 0,
 )
 
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -52,6 +58,9 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val accountServer = stringPreferencesKey("account_server")
         val autoSubmit = booleanPreferencesKey("auto_submit")
         val rivals = stringSetPreferencesKey("rivals")
+        val cloudSync = booleanPreferencesKey("cloud_sync")
+        val cloudSyncedAt = longPreferencesKey("cloud_synced_at")
+        val cloudPulledAt = longPreferencesKey("cloud_pulled_at")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
@@ -70,6 +79,9 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             account = account?.takeIf { it.serverUrl == p[Keys.serverUrl].orEmpty() && it.token.isNotEmpty() },
             autoSubmit = p[Keys.autoSubmit] ?: true,
             rivals = p[Keys.rivals].orEmpty().mapNotNull { decodeRival(it) }.sortedBy { it.displayName.lowercase() },
+            cloudSync = p[Keys.cloudSync] ?: false,
+            cloudSyncedAt = p[Keys.cloudSyncedAt],
+            cloudPulledAt = p[Keys.cloudPulledAt] ?: 0,
         )
     }
 
@@ -89,6 +101,10 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     }
 
     suspend fun setDisplayName(name: String) = store.edit { it[Keys.displayName] = name }
+
+    suspend fun setCloudSync(enabled: Boolean) = store.edit { it[Keys.cloudSync] = enabled }
+    suspend fun setCloudSyncedAt(at: Long) = store.edit { it[Keys.cloudSyncedAt] = at }
+    suspend fun setCloudPulledAt(at: Long) = store.edit { it[Keys.cloudPulledAt] = at }
 
     suspend fun addRival(rival: PlayerSummary) = store.edit { p ->
         val others = p[Keys.rivals].orEmpty().filterNot { decodeRival(it)?.playerId == rival.playerId }

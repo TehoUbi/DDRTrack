@@ -5,7 +5,9 @@ import com.tehoubi.ddrtracker.core.model.Difficulty
 import com.tehoubi.ddrtracker.core.model.PlayStyle
 import com.tehoubi.ddrtracker.core.songs.Song
 import com.tehoubi.ddrtracker.core.songs.SongCatalog
+import com.tehoubi.ddrtracker.core.stats.SyncMerge
 import com.tehoubi.ddrtracker.data.local.DdrDatabase
+import com.tehoubi.ddrtracker.data.local.PlayEntity
 import com.tehoubi.ddrtracker.data.local.UserSongEntity
 import com.tehoubi.ddrtracker.data.local.toDomain
 import com.tehoubi.ddrtracker.data.local.toEntity
@@ -77,6 +79,26 @@ class OfflineFirstPlayRepository @Inject constructor(
             rebuildSessions()
         }
         sync.playsChanged()
+    }
+
+    /**
+     * Applies plays pulled from the cloud. A remote row wins only if it is
+     * newer than the local one; applied rows are already in the cloud, so
+     * they are not marked dirty again. Returns how many were applied.
+     */
+    suspend fun mergeFromCloud(remote: List<PlayEntity>): Int {
+        if (remote.isEmpty()) return 0
+        var applied = 0
+        db.withTransaction {
+            val local = remote.chunked(500).flatMap { chunk -> plays.versions(chunk.map { it.id }) }.associate { it.id to it.updatedAt }
+            val winners = remote.filter { SyncMerge.remoteWins(local[it.id], it.updatedAt) }
+            plays.upsertAll(winners.map { it.copy(cloudDirty = false, sessionId = null) })
+            winners.filter { !it.deleted }.distinctBy { it.songKey }.forEach { rememberSong(it.toDomain(), clock.millis()) }
+            applied = winners.size
+            if (applied > 0) rebuildSessions()
+        }
+        if (applied > 0) sync.playsChanged()
+        return applied
     }
 
     private suspend fun rememberSong(play: Play, now: Long) {

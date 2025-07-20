@@ -35,7 +35,7 @@ interface PlayDao {
     @Upsert
     suspend fun upsertAll(plays: List<PlayEntity>)
 
-    @Query("UPDATE plays SET deleted = 1, updated_at = :now WHERE id = :id")
+    @Query("UPDATE plays SET deleted = 1, updated_at = :now, cloud_dirty = 1 WHERE id = :id")
     suspend fun markDeleted(id: String, now: Long)
 
     @Query("SELECT COUNT(*) FROM plays WHERE deleted = 0")
@@ -63,11 +63,26 @@ interface PlayDao {
     @Query("SELECT leaderboard_status AS status, COUNT(*) AS count FROM plays WHERE deleted = 0 GROUP BY leaderboard_status")
     fun observeLeaderboardCounts(): Flow<List<StatusCount>>
 
+    /** Rows (tombstones included) not yet pushed to Firestore. */
+    @Query("SELECT * FROM plays WHERE cloud_dirty = 1 ORDER BY updated_at LIMIT :limit")
+    suspend fun cloudDirty(limit: Int): List<PlayEntity>
+
+    @Query("UPDATE plays SET cloud_dirty = 0 WHERE id = :id AND updated_at = :updatedAt")
+    suspend fun markCloudClean(id: String, updatedAt: Long)
+
+    @Query("UPDATE plays SET cloud_dirty = 1")
+    suspend fun markAllCloudDirty()
+
+    @Query("SELECT id, updated_at AS updatedAt FROM plays WHERE id IN (:ids)")
+    suspend fun versions(ids: List<String>): List<RowVersion>
+
     @Query("UPDATE plays SET session_id = :sessionId WHERE id = :id")
     suspend fun setSession(id: String, sessionId: String)
 }
 
 data class StatusCount(val status: String, val count: Int)
+
+data class RowVersion(val id: String, val updatedAt: Long)
 
 @Dao
 interface SessionDao {

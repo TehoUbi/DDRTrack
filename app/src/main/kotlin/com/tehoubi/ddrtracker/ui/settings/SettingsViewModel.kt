@@ -2,6 +2,8 @@ package com.tehoubi.ddrtracker.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tehoubi.ddrtracker.cloud.CloudStatus
+import com.tehoubi.ddrtracker.cloud.CloudSync
 import com.tehoubi.ddrtracker.data.LeaderboardRepository
 import com.tehoubi.ddrtracker.data.UploadCounts
 import com.tehoubi.ddrtracker.data.settings.Settings
@@ -20,6 +22,9 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val settings: Settings = Settings(),
+    val cloudAvailable: Boolean = false,
+    val cloudStatus: CloudStatus = CloudStatus.Off,
+    val cloudUserId: String? = null,
     val uploads: UploadCounts = UploadCounts(),
     val serverUrlDraft: String = "",
     val nameDraft: String = "",
@@ -31,12 +36,21 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
     private val leaderboard: LeaderboardRepository,
+    private val cloud: CloudSync,
 ) : ViewModel() {
 
     private val drafts = MutableStateFlow(SettingsUiState())
 
-    val uiState: StateFlow<SettingsUiState> = combine(repository.settings, leaderboard.uploadCounts, drafts) { s, u, d ->
-        d.copy(settings = s, uploads = u)
+    val uiState: StateFlow<SettingsUiState> = combine(
+        repository.settings, leaderboard.uploadCounts, cloud.status, drafts,
+    ) { s, u, c, d ->
+        d.copy(
+            settings = s,
+            uploads = u,
+            cloudAvailable = cloud.isAvailable,
+            cloudStatus = if (!cloud.isAvailable) CloudStatus.Unavailable else c,
+            cloudUserId = cloud.currentUserId(),
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState())
 
     init {
@@ -48,6 +62,17 @@ class SettingsViewModel @Inject constructor(
 
     fun setAutoCapture(enabled: Boolean) = launch { repository.setAutoCapture(enabled) }
     fun setAutoSubmit(enabled: Boolean) = launch { repository.setAutoSubmit(enabled) }
+    fun setCloudSync(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setCloudSync(enabled)
+            if (enabled) cloud.sync()
+        }
+    }
+
+    fun syncCloudNow() {
+        viewModelScope.launch { cloud.sync() }
+    }
+
     fun onServerUrlChanged(url: String) = drafts.update { it.copy(serverUrlDraft = url) }
     fun onNameChanged(name: String) = drafts.update { it.copy(nameDraft = name) }
     fun onMessageShown() = drafts.update { it.copy(message = null) }

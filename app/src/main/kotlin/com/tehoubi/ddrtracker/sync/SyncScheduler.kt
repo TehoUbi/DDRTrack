@@ -9,6 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.tehoubi.ddrtracker.cloud.CloudSyncWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -36,6 +37,17 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(LEADERBOARD_NOW, ExistingWorkPolicy.REPLACE, request)
+        cloudNow()
+    }
+
+    /** Firestore backup; the worker exits at once if cloud sync is off or unavailable. */
+    fun cloudNow() {
+        val request = OneTimeWorkRequestBuilder<CloudSyncWorker>()
+            .setConstraints(network)
+            .setInitialDelay(5, TimeUnit.SECONDS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(CLOUD_NOW, ExistingWorkPolicy.REPLACE, request)
     }
 
     fun schedulePeriodic() {
@@ -44,10 +56,14 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(LEADERBOARD_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
+        val cloud = PeriodicWorkRequestBuilder<CloudSyncWorker>(12, TimeUnit.HOURS).setConstraints(network).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(CLOUD_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, cloud)
     }
 
     companion object {
         const val LEADERBOARD_NOW = "leaderboard-sync"
         const val LEADERBOARD_PERIODIC = "leaderboard-sync-periodic"
+        const val CLOUD_NOW = "cloud-sync"
+        const val CLOUD_PERIODIC = "cloud-sync-periodic"
     }
 }

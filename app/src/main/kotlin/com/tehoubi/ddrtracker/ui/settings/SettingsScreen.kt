@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.tehoubi.ddrtracker.cloud.CloudStatus
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
@@ -53,6 +54,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             rename = viewModel::rename,
             signOut = viewModel::signOut,
             retryRejected = viewModel::retryRejected,
+            setCloudSync = viewModel::setCloudSync,
+            syncCloudNow = viewModel::syncCloudNow,
             onMessageShown = viewModel::onMessageShown,
         ),
     )
@@ -68,6 +71,8 @@ class SettingsActions(
     val rename: () -> Unit = {},
     val signOut: () -> Unit = {},
     val retryRejected: () -> Unit = {},
+    val setCloudSync: (Boolean) -> Unit = {},
+    val syncCloudNow: () -> Unit = {},
     val onMessageShown: () -> Unit = {},
 )
 
@@ -156,6 +161,51 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
                 }
             }
             HorizontalDivider()
+
+            SettingsHeader("Cloud backup")
+            CloudSection(state, actions)
+        }
+    }
+}
+
+private val syncedFormat = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a").withZone(java.time.ZoneId.systemDefault())
+
+@Composable
+private fun CloudSection(state: SettingsUiState, actions: SettingsActions) {
+    if (!state.cloudAvailable) {
+        Text(
+            "This build has no Firebase project configured, so plays are stored on this phone only. " +
+                "Add app/google-services.json and rebuild to enable backup (see the README).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        return
+    }
+    val status = state.cloudStatus
+    ListItem(
+        headlineContent = { Text("Back up to Firebase") },
+        supportingContent = {
+            Text(
+                when (status) {
+                    CloudStatus.Unavailable -> "Unavailable"
+                    CloudStatus.Off -> "Off — plays stay on this phone"
+                    CloudStatus.Syncing -> "Syncing…"
+                    is CloudStatus.Synced -> "Synced ${syncedFormat.format(java.time.Instant.ofEpochMilli(status.atMillis))} · " +
+                        "${status.pushed} up, ${status.pulled} down"
+                    is CloudStatus.Failed -> "Last sync failed: ${status.message}"
+                } + (state.settings.cloudSyncedAt?.takeIf { status == CloudStatus.Off && state.settings.cloudSync }
+                    ?.let { " · last synced ${syncedFormat.format(java.time.Instant.ofEpochMilli(it))}" } ?: "")
+            )
+        },
+        trailingContent = { Switch(checked = state.settings.cloudSync, onCheckedChange = actions.setCloudSync) },
+    )
+    if (state.settings.cloudSync) {
+        Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            TextButton(onClick = actions.syncCloudNow, enabled = status != CloudStatus.Syncing) { Text("Sync now") }
+            state.cloudUserId?.let {
+                Text("Account ${it.take(8)}…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

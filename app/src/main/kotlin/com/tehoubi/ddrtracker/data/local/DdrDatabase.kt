@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [PlayEntity::class, UserSongEntity::class, SessionEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class DdrDatabase : RoomDatabase() {
@@ -50,6 +50,13 @@ abstract class DdrDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+        /** v4: Firestore push state. Everything starts dirty so the first sync uploads it all. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE plays ADD COLUMN cloud_dirty INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
     }
 }
