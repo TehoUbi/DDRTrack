@@ -142,6 +142,24 @@ class ScanViewModel @Inject constructor(
         }
     }
 
+    /** A screenshot or photo picked from the gallery: no live frames to vote with. */
+    fun onImagePicked(uri: android.net.Uri) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true, message = null) }
+            runCatching { pipeline.run(pipeline.decode(uri), rotationDegrees = 0) }
+                .onSuccess { (page, checked) ->
+                    if (!checked.result.looksLikeResultScreen) {
+                        fail("Couldn't find a DDR result table in that image.")
+                        return@launch
+                    }
+                    drafts.put(ScanDraft(checked, PlaySource.SCREENSHOT, Instant.now(clock), page.text))
+                    _uiState.value = ScanUiState()
+                    _events.send(ScanEvent.OpenReview)
+                }
+                .onFailure { fail("Couldn't read that image: ${it.message}") }
+        }
+    }
+
     fun onCaptureFailed(error: Throwable) = fail("Capture failed: ${error.message}")
 
     fun onMessageShown() = _uiState.update { it.copy(message = null) }

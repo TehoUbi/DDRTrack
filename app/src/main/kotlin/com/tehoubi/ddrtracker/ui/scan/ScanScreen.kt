@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -45,6 +46,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -102,6 +104,10 @@ fun ScanScreen(
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         hasPermission = it
     }
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(viewModel::onImagePicked)
+    }
+    val openGallery = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
     LaunchedEffect(Unit) {
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
@@ -116,6 +122,11 @@ fun ScanScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = openGallery, enabled = !uiState.isProcessing) {
+                        Text("From gallery", color = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -134,6 +145,7 @@ fun ScanScreen(
             } else {
                 PermissionRationale(
                     onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                    onGallery = openGallery,
                     modifier = Modifier.align(Alignment.Center).padding(padding),
                 )
             }
@@ -314,7 +326,7 @@ private fun ShutterButton(enabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PermissionRationale(onRequest: () -> Unit, modifier: Modifier = Modifier) {
+private fun PermissionRationale(onRequest: () -> Unit, onGallery: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -326,5 +338,6 @@ private fun PermissionRationale(onRequest: () -> Unit, modifier: Modifier = Modi
             textAlign = TextAlign.Center,
         )
         Button(onClick = onRequest) { Text("Allow camera") }
+        TextButton(onClick = onGallery) { Text("Or pick a screenshot", color = Color.White) }
     }
 }
