@@ -68,6 +68,8 @@ class ScanViewModel @Inject constructor(
 
     private val autoCapture = settings.settings.map { it.autoCapture }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    private val side = settings.settings.map { it.playerSide }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ResultScreenParser.Side.AUTO)
 
     private val consensus = FieldConsensus()
     private var parser = ResultScreenParser()
@@ -81,7 +83,7 @@ class ScanViewModel @Inject constructor(
         val state = _uiState.value
         if (state.isProcessing || state.phase == LivePhase.CAPTURING) return
         val page = frame.page
-        val parsed = page?.let(parser::parse)
+        val parsed = page?.let { parser.parse(it, side.value) }
         if (parsed != null) consensus.add(parsed, frame.quality.weight)
 
         val locked = consensus.isLocked

@@ -26,6 +26,9 @@ import kotlin.math.pow
  */
 class ResultScreenParser(private val catalog: SongCatalog? = null) {
 
+    /** Which player's half of a two-player result screen to read. */
+    enum class Side { AUTO, LEFT, RIGHT }
+
     internal data class LabelHit(
         val label: StatLabel,
         val box: Box,
@@ -40,7 +43,68 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         // Longest first so "EX SCORE" wins over "SCORE".
         .sortedByDescending { it.second.length }
 
-    fun parse(page: OcrPage): ParsedResult {
+    /**
+     * Parses [page]. When both players' tables are on screen (a 2-player
+     * session), the page is split between them and [side] picks one; AUTO
+     * takes whichever side read more completely, preferring 1P on a tie.
+     */
+    fun parse(page: OcrPage, side: Side = Side.AUTO): ParsedResult {
+        val (left, right) = halves(page) ?: return parseRegion(page)
+        return when (side) {
+            Side.LEFT -> parseRegion(left)
+            Side.RIGHT -> parseRegion(right)
+            Side.AUTO -> {
+                val l = parseRegion(left)
+                val r = parseRegion(right)
+                if (completeness(r) > completeness(l)) r else l
+            }
+        }
+    }
+
+    /** Both halves, for a side picker. Null when the screen has one table. */
+    fun parseBothSides(page: OcrPage): Pair<ParsedResult, ParsedResult>? =
+        halves(page)?.let { (l, r) -> parseRegion(l) to parseRegion(r) }
+
+    /**
+     * Splits a two-table page. Song and chart text above the tables is
+     * shared by both players (it is centred and may sit on either side of
+     * the split), so it goes to both halves; scores and table rows go to the
+     * half they're in.
+     */
+    private fun halves(page: OcrPage): Pair<OcrPage, OcrPage>? {
+        val hits = findLabels(page.lines)
+        val split = splitX(hits) ?: return null
+        val tableTop = hits.filter { it.label.isJudgment }.minOf { it.box.top }
+        fun shared(line: OcrLine) =
+            (line.box.left < split && line.box.right > split) ||
+                (line.box.bottom <= tableTop && line.text.count { it.isDigit() } < 4)
+        val left = page.lines.filter { shared(it) || it.box.right <= split }
+        val right = page.lines.filter { shared(it) || it.box.left >= split }
+        return page.copy(lines = left) to page.copy(lines = right)
+    }
+
+    private fun completeness(r: ParsedResult): Int =
+        StatLabel.JUDGMENTS.count { it in r.stats } + (if (r.score != null) 2 else 0) + (if (r.exScore != null) 1 else 0)
+
+    /**
+     * If the same judgment label shows up twice far apart horizontally, the
+     * x coordinate to split the page at: just left of the right-hand table's
+     * labels, so the left table's values stay on the left.
+     */
+    internal fun splitX(hits: List<LabelHit>): Int? {
+        val judgments = hits.filter { it.label.isJudgment }
+        val splits = judgments.groupBy { it.label }.values.mapNotNull { same ->
+            if (same.size < 2) return@mapNotNull null
+            val sorted = same.sortedBy { it.box.left }
+            val l = sorted.first(); val r = sorted.last()
+            // Same row height and well apart: two tables, not one label read twice.
+            if (r.box.left - l.box.right < l.box.width * 2) null else r.box.left - r.box.height / 2
+        }
+        // Need agreement from at least two rows before believing it.
+        return if (splits.size >= 2) splits.sorted()[splits.size / 2] else null
+    }
+
+    private fun parseRegion(page: OcrPage): ParsedResult {
         val lines = page.lines
         val hits = findLabels(lines)
         val used = mutableSetOf<Box>()

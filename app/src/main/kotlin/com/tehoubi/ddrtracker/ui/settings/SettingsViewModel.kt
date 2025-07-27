@@ -3,6 +3,7 @@ package com.tehoubi.ddrtracker.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tehoubi.ddrtracker.cloud.CloudStatus
+import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
 import com.tehoubi.ddrtracker.cloud.CloudSync
 import com.tehoubi.ddrtracker.data.LeaderboardRepository
 import com.tehoubi.ddrtracker.data.UploadCounts
@@ -61,6 +62,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setAutoCapture(enabled: Boolean) = launch { repository.setAutoCapture(enabled) }
+    fun setPlayerSide(side: ResultScreenParser.Side) = launch { repository.setPlayerSide(side) }
     fun setAutoSubmit(enabled: Boolean) = launch { repository.setAutoSubmit(enabled) }
     fun setCloudSync(enabled: Boolean) {
         viewModelScope.launch {

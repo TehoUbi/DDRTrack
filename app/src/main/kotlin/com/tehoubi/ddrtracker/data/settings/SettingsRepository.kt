@@ -2,6 +2,7 @@ package com.tehoubi.ddrtracker.data.settings
 
 import android.content.Context
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
+import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -28,6 +29,8 @@ data class LeaderboardAccount(
 data class Settings(
     /** Take the still automatically once the live reading settles. */
     val autoCapture: Boolean = true,
+    /** Which table to read on a two-player result screen. */
+    val playerSide: ResultScreenParser.Side = ResultScreenParser.Side.AUTO,
     /** Base URL of the leaderboard service; blank means leaderboards are off. */
     val serverUrl: String = "",
     val account: LeaderboardAccount? = null,
@@ -51,6 +54,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
 
     private object Keys {
         val autoCapture = booleanPreferencesKey("auto_capture")
+        val playerSide = stringPreferencesKey("player_side")
         val serverUrl = stringPreferencesKey("server_url")
         val playerId = stringPreferencesKey("player_id")
         val displayName = stringPreferencesKey("display_name")
@@ -74,6 +78,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         }
         Settings(
             autoCapture = p[Keys.autoCapture] ?: true,
+            playerSide = p[Keys.playerSide]?.let { runCatching { ResultScreenParser.Side.valueOf(it) }.getOrNull() }
+                ?: ResultScreenParser.Side.AUTO,
             serverUrl = p[Keys.serverUrl].orEmpty(),
             // An account only counts for the server it was created on.
             account = account?.takeIf { it.serverUrl == p[Keys.serverUrl].orEmpty() && it.token.isNotEmpty() },
@@ -88,6 +94,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun current(): Settings = settings.first()
 
     suspend fun setAutoCapture(enabled: Boolean) = store.edit { it[Keys.autoCapture] = enabled }
+
+    suspend fun setPlayerSide(side: ResultScreenParser.Side) = store.edit { it[Keys.playerSide] = side.name }
 
     suspend fun setServerUrl(url: String) = store.edit { it[Keys.serverUrl] = url }
 

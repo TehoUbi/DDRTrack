@@ -21,6 +21,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -37,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tehoubi.ddrtracker.cloud.CloudStatus
+import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
@@ -46,6 +50,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
         onBack = onBack,
         actions = SettingsActions(
             setAutoCapture = viewModel::setAutoCapture,
+            setPlayerSide = viewModel::setPlayerSide,
             setAutoSubmit = viewModel::setAutoSubmit,
             onServerUrlChanged = viewModel::onServerUrlChanged,
             onNameChanged = viewModel::onNameChanged,
@@ -63,6 +68,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
 class SettingsActions(
     val setAutoCapture: (Boolean) -> Unit = {},
+    val setPlayerSide: (ResultScreenParser.Side) -> Unit = {},
     val setAutoSubmit: (Boolean) -> Unit = {},
     val onServerUrlChanged: (String) -> Unit = {},
     val onNameChanged: (String) -> Unit = {},
@@ -100,6 +106,24 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
                 headlineContent = { Text("Capture automatically") },
                 supportingContent = { Text("Take the photo as soon as the live reading settles") },
                 trailingContent = { Switch(checked = settings.autoCapture, onCheckedChange = actions.setAutoCapture) },
+            )
+            ListItem(
+                headlineContent = { Text("Your side") },
+                supportingContent = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("On two-player screens, which table is yours")
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            val sides = listOf(ResultScreenParser.Side.AUTO to "Auto", ResultScreenParser.Side.LEFT to "1P", ResultScreenParser.Side.RIGHT to "2P")
+                            sides.forEachIndexed { i, (side, label) ->
+                                SegmentedButton(
+                                    selected = settings.playerSide == side,
+                                    onClick = { actions.setPlayerSide(side) },
+                                    shape = SegmentedButtonDefaults.itemShape(i, sides.size),
+                                ) { Text(label) }
+                            }
+                        }
+                    }
+                },
             )
             HorizontalDivider()
 
