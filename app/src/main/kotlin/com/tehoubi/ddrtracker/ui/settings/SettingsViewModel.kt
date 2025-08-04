@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.tehoubi.ddrtracker.cloud.CloudStatus
 import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
 import com.tehoubi.ddrtracker.cloud.CloudSync
+import android.net.Uri
 import com.tehoubi.ddrtracker.data.LeaderboardRepository
+import com.tehoubi.ddrtracker.data.backup.BackupManager
 import com.tehoubi.ddrtracker.data.UploadCounts
 import com.tehoubi.ddrtracker.data.settings.Settings
 import com.tehoubi.ddrtracker.data.settings.SettingsRepository
@@ -38,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
     private val leaderboard: LeaderboardRepository,
     private val cloud: CloudSync,
+    private val backups: BackupManager,
 ) : ViewModel() {
 
     private val drafts = MutableStateFlow(SettingsUiState())
@@ -73,6 +76,21 @@ class SettingsViewModel @Inject constructor(
 
     fun syncCloudNow() {
         viewModelScope.launch { cloud.sync() }
+    }
+
+    fun exportCsv(uri: Uri) = busy {
+        runCatching { backups.exportCsv(uri) }.fold({ "Exported $it plays" }, { "Export failed: ${it.message}" })
+    }
+
+    fun exportBackup(uri: Uri) = busy {
+        runCatching { backups.exportBackup(uri) }.fold({ "Backed up $it plays" }, { "Backup failed: ${it.message}" })
+    }
+
+    fun restore(uri: Uri) = busy {
+        runCatching { backups.restore(uri) }.fold(
+            { "Restored ${it.restored} plays" + if (it.skipped > 0) " (${it.skipped} unreadable rows skipped)" else "" },
+            { "Restore failed: ${it.message}" },
+        )
     }
 
     fun onServerUrlChanged(url: String) = drafts.update { it.copy(serverUrlDraft = url) }

@@ -1,5 +1,9 @@
 package com.tehoubi.ddrtracker.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,6 +65,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             retryRejected = viewModel::retryRejected,
             setCloudSync = viewModel::setCloudSync,
             syncCloudNow = viewModel::syncCloudNow,
+            exportCsv = viewModel::exportCsv,
+            exportBackup = viewModel::exportBackup,
+            restore = viewModel::restore,
             onMessageShown = viewModel::onMessageShown,
         ),
     )
@@ -79,6 +86,9 @@ class SettingsActions(
     val retryRejected: () -> Unit = {},
     val setCloudSync: (Boolean) -> Unit = {},
     val syncCloudNow: () -> Unit = {},
+    val exportCsv: (Uri) -> Unit = {},
+    val exportBackup: (Uri) -> Unit = {},
+    val restore: (Uri) -> Unit = {},
     val onMessageShown: () -> Unit = {},
 )
 
@@ -188,8 +198,35 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
 
             SettingsHeader("Cloud backup")
             CloudSection(state, actions)
+            HorizontalDivider()
+
+            SettingsHeader("Your data")
+            DataSection(state, actions)
         }
     }
+}
+
+@Composable
+private fun DataSection(state: SettingsUiState, actions: SettingsActions) {
+    val stamp = java.time.LocalDate.now().toString()
+    val csv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { it?.let(actions.exportCsv) }
+    val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let(actions.exportBackup) }
+    val restore = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(actions.restore) }
+    ListItem(
+        headlineContent = { Text("Export as CSV") },
+        supportingContent = { Text("Every play, one row each, for spreadsheets") },
+        modifier = Modifier.clickable(enabled = !state.busy) { csv.launch("ddr-plays-$stamp.csv") },
+    )
+    ListItem(
+        headlineContent = { Text("Back up to a file") },
+        supportingContent = { Text("Everything needed to restore the log on any phone") },
+        modifier = Modifier.clickable(enabled = !state.busy) { backup.launch("ddr-tracker-backup-$stamp.json") },
+    )
+    ListItem(
+        headlineContent = { Text("Restore from a file") },
+        supportingContent = { Text("Merges a backup into this log; plays already here are replaced, not duplicated") },
+        modifier = Modifier.clickable(enabled = !state.busy) { restore.launch(arrayOf("application/json", "text/plain", "*/*")) },
+    )
 }
 
 private val syncedFormat = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a").withZone(java.time.ZoneId.systemDefault())
