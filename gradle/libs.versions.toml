@@ -23,6 +23,7 @@ junit = "4.13.2"
 junitAndroid = "1.2.1"
 espresso = "3.6.1"
 robolectric = "4.14.1"
+roborazzi = "1.32.2"
 androidxTestCore = "1.6.1"
 
 ktor = "2.3.12"
@@ -101,6 +102,9 @@ postgresql = { group = "org.postgresql", name = "postgresql", version.ref = "pos
 logback = { group = "ch.qos.logback", name = "logback-classic", version.ref = "logback" }
 embedded-postgres = { group = "io.zonky.test", name = "embedded-postgres", version.ref = "embeddedPostgres" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
@@ -114,4 +118,5 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
