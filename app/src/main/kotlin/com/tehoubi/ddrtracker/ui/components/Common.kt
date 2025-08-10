@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tehoubi.ddrtracker.core.model.Judgments
@@ -28,7 +29,8 @@ import com.tehoubi.ddrtracker.ui.theme.ScoreDigits
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary) {
     Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Text(value, style = ScoreDigits.copy(fontSize = MaterialTheme.typography.titleLarge.fontSize), color = accent)
+            // A standalone figure reads better with proportional digits.
+            Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = accent)
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

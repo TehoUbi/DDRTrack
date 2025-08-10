@@ -80,12 +80,17 @@ private val axisWidth = 40.dp
 @Composable
 private fun axisStyle() = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-/** Clean tick values (1, 2, 5 x 10^n steps) covering [min]..[max]. */
-internal fun niceTicks(min: Float, max: Float, count: Int = 4): List<Float> {
+/**
+ * Clean tick values (1, 2, 2.5, 5 x 10^n steps) covering [min]..[max]. With
+ * [integer], steps never go below 1 so whole-number data (levels, counts)
+ * doesn't get repeated labels.
+ */
+internal fun niceTicks(min: Float, max: Float, count: Int = 4, integer: Boolean = false): List<Float> {
     if (max <= min) return listOf(min)
     val raw = (max - min) / count
     val magnitude = 10f.pow(floor(log10(raw)))
     val step = listOf(1f, 2f, 2.5f, 5f, 10f).map { it * magnitude }.first { it >= raw }
+        .let { if (integer) ceil(it).coerceAtLeast(1f) else it }
     val start = floor(min / step) * step
     val end = ceil(max / step) * step
     return generateSequence(start) { it + step }.takeWhile { it <= end + step / 2 }.toList()
@@ -122,6 +127,7 @@ fun LineChart(
     yMax: Float? = null,
     step: Boolean = false,
     endLabel: Boolean = true,
+    integer: Boolean = false,
 ) {
     if (points.isEmpty()) return
     var selected by remember(points) { mutableStateOf<Int?>(null) }
@@ -133,7 +139,7 @@ fun LineChart(
 
     val lo = yMin ?: points.minOf { it.y }
     val hi = yMax ?: points.maxOf { it.y }
-    val ticks = niceTicks(lo, if (hi == lo) lo + 1 else hi)
+    val ticks = niceTicks(lo, if (hi == lo) lo + 1 else hi, integer = integer)
     val y0 = yMin ?: ticks.first()
     val y1 = yMax ?: ticks.last()
     val x0 = points.minOf { it.x }
@@ -223,7 +229,7 @@ fun ColumnChart(
     val measurer = rememberTextMeasurer()
     val axis = axisStyle()
     val grid = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-    val ticks = niceTicks(0f, bars.maxOf { it.value }.coerceAtLeast(1f), count = 3)
+    val ticks = niceTicks(0f, bars.maxOf { it.value }.coerceAtLeast(1f), count = 3, integer = true)
     val top = ticks.last()
 
     Column(modifier) {

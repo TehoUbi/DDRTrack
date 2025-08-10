@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,7 +44,6 @@ import com.tehoubi.ddrtracker.ui.components.PlayCard
 import com.tehoubi.ddrtracker.ui.components.formatScore
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 
 @Composable
 fun HistoryScreen(
@@ -185,20 +183,24 @@ private fun FilterChips(f: HistoryFilter, onFilter: ((HistoryFilter) -> HistoryF
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LevelRange(f: HistoryFilter, onFilter: ((HistoryFilter) -> HistoryFilter) -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        Text(
-            if (f.levels == LEVEL_RANGE) "All levels" else "Levels ${f.levels.first}–${f.levels.last}",
-            style = MaterialTheme.typography.labelMedium,
-        )
-        RangeSlider(
-            value = f.levels.first.toFloat()..f.levels.last.toFloat(),
-            onValueChange = { r -> onFilter { it.copy(levels = r.start.roundToInt()..r.endInclusive.roundToInt()) } },
-            valueRange = LEVEL_RANGE.first.toFloat()..LEVEL_RANGE.last.toFloat(),
-            steps = LEVEL_RANGE.last - LEVEL_RANGE.first - 1,
-        )
+    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Levels", style = MaterialTheme.typography.labelLarge)
+        LevelPicker(f.levels.first, LEVEL_RANGE.first..f.levels.last) { v -> onFilter { it.copy(levels = v..it.levels.last) } }
+        Text("to", style = MaterialTheme.typography.labelLarge)
+        LevelPicker(f.levels.last, f.levels.first..LEVEL_RANGE.last) { v -> onFilter { it.copy(levels = it.levels.first..v) } }
+    }
+}
+
+@Composable
+private fun LevelPicker(value: Int, choices: IntRange, onPick: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    TextButton(onClick = { open = true }) { Text(value.toString()) }
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        choices.forEach { level ->
+            DropdownMenuItem(text = { Text(level.toString()) }, onClick = { onPick(level); open = false })
+        }
     }
 }
 

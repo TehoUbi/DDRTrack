@@ -109,6 +109,9 @@ fun ProgressContent(state: ProgressUiState, contentPadding: PaddingValues = Padd
                             },
                             step = true,
                             height = 120.dp,
+                            integer = true,
+                            yMin = state.comfortHistory.minOf { it.value }.toFloat() - 1,
+                            yMax = state.comfortHistory.maxOf { it.value }.toFloat() + 1,
                         )
                     }
                 }
