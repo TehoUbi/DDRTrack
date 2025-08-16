@@ -48,3 +48,13 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit)
 }
+
+// Local development without Docker or a Postgres install: starts the server
+// on an embedded PostgreSQL. `--args="--seed-demo"` adds sample players.
+tasks.register<JavaExec>("runDev") {
+    group = "application"
+    description = "Runs the server against an embedded PostgreSQL on port 8080."
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.tehoubi.ddrtracker.server.DevServerKt")
+    standardInput = System.`in`
+}

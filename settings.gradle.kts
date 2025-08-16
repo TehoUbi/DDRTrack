@@ -15,6 +15,9 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "DDRPerformanceTracker"
-include(":app")
 include(":core")
 include(":server")
+// The server's Docker build has no Android SDK, so it leaves the app out.
+if (System.getenv("DDR_SERVER_ONLY") == null) {
+    include(":app")
+}

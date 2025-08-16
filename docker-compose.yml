@@ -1,0 +1,35 @@
+# Leaderboard server + PostgreSQL. `docker compose up -d`, then point the
+# app's Settings > Leaderboard at http://<this machine's LAN IP>:8080.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ddrtracker
+      POSTGRES_USER: ddrtracker
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-ddrtracker}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ddrtracker -d ddrtracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/ddrtracker
+      DATABASE_USER: ddrtracker
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-ddrtracker}
+      REGISTRATIONS_PER_HOUR: ${REGISTRATIONS_PER_HOUR:-10}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
