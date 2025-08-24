@@ -50,6 +50,10 @@ class CloudSync @Inject constructor(
 
     private val mutex = Mutex()
 
+    private companion object {
+        const val PULL_PAGE = 500
+    }
+
     fun currentUserId(): String? = if (isAvailable) FirebaseAuth.getInstance().currentUser?.uid else null
 
     /** Pushes then pulls. Returns false if it should be retried later. */
@@ -96,22 +100,31 @@ class CloudSync @Inject constructor(
         return pushed
     }
 
+    /**
+     * Pulls plays changed since [since]. Pages continue from the last
+     * document (startAfter), not from its timestamp: a restore stamps
+     * hundreds of rows with the same updatedAt, and "updatedAt > last"
+     * would skip everything after the first page that shares it. The
+     * stored high-water mark only advances once a run has read every page.
+     */
     private suspend fun pull(user: com.google.firebase.firestore.DocumentReference, since: Long): Int {
-        var cursor = since
+        val base = user.collection("plays")
+            .whereGreaterThan("updatedAt", since)
+            .orderBy("updatedAt", Query.Direction.ASCENDING)
+            .limit(PULL_PAGE.toLong())
         var applied = 0
+        var highWater = since
+        var last: com.google.firebase.firestore.DocumentSnapshot? = null
         while (true) {
-            val page = user.collection("plays")
-                .whereGreaterThan("updatedAt", cursor)
-                .orderBy("updatedAt", Query.Direction.ASCENDING)
-                .limit(500)
-                .get().await()
+            val page = (last?.let { base.startAfter(it) } ?: base).get().await()
             if (page.isEmpty) break
             val rows = page.documents.mapNotNull { doc -> doc.data?.let { playFromDocument(doc.id, it) } }
             applied += repository.mergeFromCloud(rows)
-            cursor = rows.maxOfOrNull { it.updatedAt } ?: break
-            settings.setCloudPulledAt(cursor)
-            if (page.size() < 500) break
+            highWater = maxOf(highWater, rows.maxOfOrNull { it.updatedAt } ?: highWater)
+            last = page.documents.last()
+            if (page.size() < PULL_PAGE) break
         }
+        settings.setCloudPulledAt(highWater)
         return applied
     }
 
