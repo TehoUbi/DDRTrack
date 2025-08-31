@@ -133,7 +133,7 @@ fun PlayDetailContent(
             )
             play.note?.let { Text(it) }
             OutlinedButton(onClick = { onChart(play) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Chart history (${state.attempts} plays)")
+                Text("Chart history (${state.attempts} play${if (state.attempts == 1) "" else "s"})")
             }
         }
     }

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -23,12 +25,29 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release signing comes from keystore.properties (gitignored) when it
+    // exists; otherwise release builds use the debug key so
+    // `assembleRelease` always produces an installable APK.
+    val keystoreProps = rootProject.file("keystore.properties")
+    signingConfigs {
+        if (keystoreProps.exists()) {
+            val props = Properties().apply { keystoreProps.inputStream().use { load(it) } }
+            create("release") {
+                storeFile = rootProject.file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -44,6 +63,15 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+// Unit and screenshot tests don't depend on the build type, and the
+// screenshot tests need the debug-only ui-test-manifest, so they run for
+// debug only. Without this, `./gradlew test` failed in testReleaseUnitTest.
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        (variant as com.android.build.api.variant.HasUnitTestBuilder).enableUnitTest = false
     }
 }
 

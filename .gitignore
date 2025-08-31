@@ -12,3 +12,6 @@ local.properties
 google-services.json
 *.env
 *.keystore
+keystore.properties
+*.jks
+dist/
