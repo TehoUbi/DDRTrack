@@ -1,0 +1,591 @@
+{
+ "source": "sample3.jpg",
+ "engine": "RapidOCR (PP-OCR, onnxruntime)",
+ "width": 1920,
+ "height": 2560,
+ "lines": [
+  {
+   "text": "Here we.go!",
+   "box": [
+    10,
+    289,
+    1176,
+    481
+   ],
+   "angle": -0.32,
+   "confidence": 0.907
+  },
+  {
+   "text": "RESULTS",
+   "box": [
+    1316,
+    635,
+    1915,
+    778
+   ],
+   "angle": -1.62,
+   "confidence": 0.951
+  },
+  {
+   "text": "JanceBance",
+   "box": [
+    202,
+    698,
+    688,
+    761
+   ],
+   "angle": -0.76,
+   "confidence": 0.872
+  },
+  {
+   "text": "Revolution",
+   "box": [
+    197,
+    770,
+    604,
+    831
+   ],
+   "angle": 0.54,
+   "confidence": 0.932
+  },
+  {
+   "text": "EXTRA STAGE",
+   "box": [
+    1383,
+    768,
+    1919,
+    843
+   ],
+   "angle": -1.24,
+   "confidence": 0.948
+  },
+  {
+   "text": "SORREL",
+   "box": [
+    851,
+    835,
+    1072,
+    890
+   ],
+   "angle": -1.01,
+   "confidence": 0.967
+  },
+  {
+   "text": "STYLES",
+   "box": [
+    769,
+    908,
+    899,
+    981
+   ],
+   "angle": 0.0,
+   "confidence": 0.823
+  },
+  {
+   "text": "Excpert13",
+   "box": [
+    895,
+    908,
+    1155,
+    969
+   ],
+   "angle": 0.0,
+   "confidence": 0.877
+  },
+  {
+   "text": "PerfectFullcombo!!",
+   "box": [
+    853,
+    1381,
+    1224,
+    1421
+   ],
+   "angle": -0.8,
+   "confidence": 0.957
+  },
+  {
+   "text": "999.910",
+   "box": [
+    841,
+    1431,
+    1306,
+    1521
+   ],
+   "angle": 0.0,
+   "confidence": 0.993
+  },
+  {
+   "text": "Yukopi",
+   "box": [
+    1379,
+    1449,
+    1453,
+    1480
+   ],
+   "angle": 3.05,
+   "confidence": 0.896
+  },
+  {
+   "text": "NEWRECORD!!!!",
+   "box": [
+    1005,
+    1534,
+    1305,
+    1569
+   ],
+   "angle": 0.0,
+   "confidence": 0.949
+  },
+  {
+   "text": "ories",
+   "box": [
+    507,
+    1618,
+    605,
+    1658
+   ],
+   "angle": 0.0,
+   "confidence": 0.982
+  },
+  {
+   "text": "Simpleresult",
+   "box": [
+    637,
+    1614,
+    874,
+    1653
+   ],
+   "angle": 0.0,
+   "confidence": 0.992
+  },
+  {
+   "text": "Details",
+   "box": [
+    966,
+    1613,
+    1117,
+    1652
+   ],
+   "angle": 0.0,
+   "confidence": 0.987
+  },
+  {
+   "text": "PlayGraph",
+   "box": [
+    1201,
+    1613,
+    1449,
+    1658
+   ],
+   "angle": 0.6,
+   "confidence": 0.975
+  },
+  {
+   "text": "FLAF",
+   "box": [
+    1494,
+    1614,
+    1594,
+    1655
+   ],
+   "angle": 0.0,
+   "confidence": 0.987
+  },
+  {
+   "text": "'aph",
+   "box": [
+    1643,
+    1614,
+    1734,
+    1662
+   ],
+   "angle": -4.19,
+   "confidence": 0.955
+  },
+  {
+   "text": "FLARE",
+   "box": [
+    1776,
+    1615,
+    1912,
+    1655
+   ],
+   "angle": 0.0,
+   "confidence": 0.982
+  },
+  {
+   "text": "FLAREEX",
+   "box": [
+    610,
+    1698,
+    724,
+    1725
+   ],
+   "angle": 0.0,
+   "confidence": 0.995
+  },
+  {
+   "text": "91.0%",
+   "box": [
+    1397,
+    1694,
+    1505,
+    1730
+   ],
+   "angle": 0.0,
+   "confidence": 0.986
+  },
+  {
+   "text": "WORI",
+   "box": [
+    1843,
+    1695,
+    1919,
+    1728
+   ],
+   "angle": 0.0,
+   "confidence": 0.855
+  },
+  {
+   "text": "AREA",
+   "box": [
+    1836,
+    1735,
+    1919,
+    1768
+   ],
+   "angle": 0.0,
+   "confidence": 0.991
+  },
+  {
+   "text": "Marvelous",
+   "box": [
+    545,
+    1754,
+    751,
+    1797
+   ],
+   "angle": 0.0,
+   "confidence": 0.992
+  },
+  {
+   "text": "434",
+   "box": [
+    802,
+    1752,
+    873,
+    1786
+   ],
+   "angle": 0.0,
+   "confidence": 1.0
+  },
+  {
+   "text": "FAST",
+   "box": [
+    906,
+    1751,
+    991,
+    1791
+   ],
+   "angle": 1.78,
+   "confidence": 0.996
+  },
+  {
+   "text": "SCORE",
+   "box": [
+    1080,
+    1755,
+    1213,
+    1790
+   ],
+   "angle": 0.0,
+   "confidence": 0.987
+  },
+  {
+   "text": "999.910",
+   "box": [
+    1417,
+    1752,
+    1570,
+    1791
+   ],
+   "angle": 0.0,
+   "confidence": 0.991
+  },
+  {
+   "text": "RIVAL",
+   "box": [
+    1834,
+    1779,
+    1919,
+    1810
+   ],
+   "angle": 0.0,
+   "confidence": 0.983
+  },
+  {
+   "text": "Perfect",
+   "box": [
+    605,
+    1792,
+    752,
+    1836
+   ],
+   "angle": 0.0,
+   "confidence": 0.98
+  },
+  {
+   "text": "2",
+   "box": [
+    934,
+    1796,
+    963,
+    1828
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "BESTSCORE",
+   "box": [
+    1081,
+    1792,
+    1311,
+    1830
+   ],
+   "angle": 0.64,
+   "confidence": 0.99
+  },
+  {
+   "text": "990.460",
+   "box": [
+    1416,
+    1792,
+    1566,
+    1827
+   ],
+   "angle": 0.0,
+   "confidence": 0.941
+  },
+  {
+   "text": "Great",
+   "box": [
+    634,
+    1831,
+    752,
+    1871
+   ],
+   "angle": 0.0,
+   "confidence": 0.986
+  },
+  {
+   "text": "+9.450",
+   "box": [
+    1441,
+    1832,
+    1566,
+    1868
+   ],
+   "angle": 0.0,
+   "confidence": 0.96
+  },
+  {
+   "text": "RIVAL",
+   "box": [
+    1832,
+    1821,
+    1919,
+    1853
+   ],
+   "angle": 0.0,
+   "confidence": 0.986
+  },
+  {
+   "text": "MOTS",
+   "box": [
+    903,
+    1843,
+    996,
+    1879
+   ],
+   "angle": 0.0,
+   "confidence": 0.933
+  },
+  {
+   "text": "Good",
+   "box": [
+    640,
+    1868,
+    746,
+    1908
+   ],
+   "angle": 0.0,
+   "confidence": 0.996
+  },
+  {
+   "text": "EXSCORE",
+   "box": [
+    1083,
+    1871,
+    1265,
+    1908
+   ],
+   "angle": 0.81,
+   "confidence": 0.988
+  },
+  {
+   "text": "1.359",
+   "box": [
+    1460,
+    1870,
+    1566,
+    1910
+   ],
+   "angle": 0.0,
+   "confidence": 0.921
+  },
+  {
+   "text": "RIVAL",
+   "box": [
+    1829,
+    1862,
+    1919,
+    1894
+   ],
+   "angle": 0.0,
+   "confidence": 0.982
+  },
+  {
+   "text": "7",
+   "box": [
+    940,
+    1888,
+    961,
+    1912
+   ],
+   "angle": 0.0,
+   "confidence": 0.997
+  },
+  {
+   "text": "OK",
+   "box": [
+    654,
+    1906,
+    744,
+    1942
+   ],
+   "angle": 0.0,
+   "confidence": 0.952
+  },
+  {
+   "text": "MAXCOMBO",
+   "box": [
+    1080,
+    1912,
+    1321,
+    1946
+   ],
+   "angle": 0.0,
+   "confidence": 0.967
+  },
+  {
+   "text": "443/443",
+   "box": [
+    1381,
+    1907,
+    1566,
+    1946
+   ],
+   "angle": 0.8,
+   "confidence": 0.993
+  },
+  {
+   "text": "MACHIN",
+   "box": [
+    1827,
+    1903,
+    1919,
+    1934
+   ],
+   "angle": 0.0,
+   "confidence": 0.984
+  },
+  {
+   "text": "Miss",
+   "box": [
+    660,
+    1945,
+    754,
+    1986
+   ],
+   "angle": 0.0,
+   "confidence": 0.983
+  },
+  {
+   "text": "HIGHSO",
+   "box": [
+    1823,
+    1942,
+    1919,
+    1977
+   ],
+   "angle": -1.54,
+   "confidence": 0.949
+  },
+  {
+   "text": "Check your results!",
+   "box": [
+    439,
+    2088,
+    827,
+    2132
+   ],
+   "angle": 0.57,
+   "confidence": 0.969
+  },
+  {
+   "text": "Switch tabs with the",
+   "box": [
+    931,
+    2085,
+    1536,
+    2139
+   ],
+   "angle": 0.37,
+   "confidence": 0.936
+  },
+  {
+   "text": "buttons.",
+   "box": [
+    1620,
+    2089,
+    1866,
+    2142
+   ],
+   "angle": 1.21,
+   "confidence": 0.942
+  },
+  {
+   "text": "ONLINE",
+   "box": [
+    914,
+    2141,
+    1042,
+    2179
+   ],
+   "angle": 1.16,
+   "confidence": 0.984
+  },
+  {
+   "text": "CREDITS:2",
+   "box": [
+    1513,
+    2145,
+    1681,
+    2183
+   ],
+   "angle": 1.32,
+   "confidence": 0.97
+  }
+ ]
+}

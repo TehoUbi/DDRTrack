@@ -1,0 +1,289 @@
+{
+ "source": "sample2.jpg",
+ "engine": "RapidOCR (PP-OCR, onnxruntime)",
+ "region": [
+  0,
+  1672,
+  982,
+  1966
+ ],
+ "width": 1534,
+ "height": 460,
+ "lines": [
+  {
+   "text": "FLAREI",
+   "box": [
+    112,
+    0,
+    253,
+    28
+   ],
+   "angle": 0.0,
+   "confidence": 0.983
+  },
+  {
+   "text": "991.280",
+   "box": [
+    1283,
+    34,
+    1483,
+    81
+   ],
+   "angle": -1.44,
+   "confidence": 0.985
+  },
+  {
+   "text": "252",
+   "box": [
+    385,
+    65,
+    491,
+    114
+   ],
+   "angle": -1.09,
+   "confidence": 0.999
+  },
+  {
+   "text": "FAST",
+   "box": [
+    548,
+    62,
+    665,
+    109
+   ],
+   "angle": -1.48,
+   "confidence": 0.992
+  },
+  {
+   "text": "SCORE",
+   "box": [
+    805,
+    52,
+    988,
+    98
+   ],
+   "angle": -1.89,
+   "confidence": 0.99
+  },
+  {
+   "text": "Marvelous",
+   "box": [
+    3,
+    71,
+    303,
+    135
+   ],
+   "angle": -2.31,
+   "confidence": 0.985
+  },
+  {
+   "text": "989.030",
+   "box": [
+    1282,
+    88,
+    1480,
+    135
+   ],
+   "angle": -1.45,
+   "confidence": 0.996
+  },
+  {
+   "text": "80",
+   "box": [
+    419,
+    120,
+    492,
+    171
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "68",
+   "box": [
+    570,
+    116,
+    644,
+    168
+   ],
+   "angle": -2.39,
+   "confidence": 0.999
+  },
+  {
+   "text": "BESTSCORE",
+   "box": [
+    808,
+    103,
+    1125,
+    153
+   ],
+   "angle": -1.81,
+   "confidence": 0.994
+  },
+  {
+   "text": "Perfect",
+   "box": [
+    85,
+    126,
+    306,
+    192
+   ],
+   "angle": -2.09,
+   "confidence": 0.989
+  },
+  {
+   "text": "+2.250",
+   "box": [
+    1312,
+    142,
+    1478,
+    189
+   ],
+   "angle": -2.44,
+   "confidence": 0.996
+  },
+  {
+   "text": "70",
+   "box": [
+    454,
+    171,
+    495,
+    284
+   ],
+   "angle": 0.0,
+   "confidence": 0.979
+  },
+  {
+   "text": "Great",
+   "box": [
+    130,
+    185,
+    305,
+    238
+   ],
+   "angle": -0.99,
+   "confidence": 0.986
+  },
+  {
+   "text": "MOTS",
+   "box": [
+    547,
+    188,
+    669,
+    231
+   ],
+   "angle": 0.0,
+   "confidence": 0.941
+  },
+  {
+   "text": "977",
+   "box": [
+    1375,
+    192,
+    1476,
+    243
+   ],
+   "angle": -2.89,
+   "confidence": 0.999
+  },
+  {
+   "text": "EXSCORE",
+   "box": [
+    806,
+    214,
+    1060,
+    264
+   ],
+   "angle": -1.81,
+   "confidence": 0.985
+  },
+  {
+   "text": "Good",
+   "box": [
+    141,
+    240,
+    296,
+    295
+   ],
+   "angle": -4.54,
+   "confidence": 0.992
+  },
+  {
+   "text": "19",
+   "box": [
+    576,
+    240,
+    646,
+    292
+   ],
+   "angle": -2.56,
+   "confidence": 0.998
+  },
+  {
+   "text": "339/339",
+   "box": [
+    1229,
+    249,
+    1470,
+    297
+   ],
+   "angle": -1.92,
+   "confidence": 0.986
+  },
+  {
+   "text": "18",
+   "box": [
+    428,
+    283,
+    497,
+    335
+   ],
+   "angle": -1.71,
+   "confidence": 0.999
+  },
+  {
+   "text": "MAX COMDO",
+   "box": [
+    805,
+    263,
+    1168,
+    318
+   ],
+   "angle": -2.06,
+   "confidence": 0.873
+  },
+  {
+   "text": "Ouk.",
+   "box": [
+    172,
+    295,
+    297,
+    346
+   ],
+   "angle": 0.0,
+   "confidence": 0.617
+  },
+  {
+   "text": "Miss",
+   "box": [
+    168,
+    342,
+    312,
+    411
+   ],
+   "angle": -3.27,
+   "confidence": 0.988
+  },
+  {
+   "text": "0",
+   "box": [
+    459,
+    341,
+    494,
+    384
+   ],
+   "angle": 0.0,
+   "confidence": 0.682
+  }
+ ]
+}

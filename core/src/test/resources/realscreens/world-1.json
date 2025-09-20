@@ -1,0 +1,712 @@
+{
+ "source": "sample1.jpg",
+ "engine": "RapidOCR (PP-OCR, onnxruntime)",
+ "width": 1920,
+ "height": 2560,
+ "lines": [
+  {
+   "text": "BEMANI",
+   "box": [
+    151,
+    43,
+    477,
+    128
+   ],
+   "angle": -1.14,
+   "confidence": 0.998
+  },
+  {
+   "text": "OKonami Amusement",
+   "box": [
+    1333,
+    44,
+    1700,
+    93
+   ],
+   "angle": -0.4,
+   "confidence": 0.962
+  },
+  {
+   "text": "Dance IDance Rerolutions an orignalgame product ereated by",
+   "box": [
+    1063,
+    373,
+    1787,
+    410
+   ],
+   "angle": 0.0,
+   "confidence": 0.878
+  },
+  {
+   "text": "Kovami IDigital Eutertamment Co,LtdrreservesthecopyrightsArademarks au",
+   "box": [
+    1066,
+    408,
+    1919,
+    439
+   ],
+   "angle": 0.09,
+   "confidence": 0.86
+  },
+  {
+   "text": "property rightswith respect to this game product.",
+   "box": [
+    1065,
+    441,
+    1600,
+    474
+   ],
+   "angle": -0.14,
+   "confidence": 0.942
+  },
+  {
+   "text": "RESULTS",
+   "box": [
+    1097,
+    609,
+    1854,
+    765
+   ],
+   "angle": -0.29,
+   "confidence": 0.941
+  },
+  {
+   "text": "nceDance",
+   "box": [
+    6,
+    652,
+    417,
+    715
+   ],
+   "angle": -0.36,
+   "confidence": 0.969
+  },
+  {
+   "text": "yolution",
+   "box": [
+    15,
+    720,
+    336,
+    791
+   ],
+   "angle": 1.16,
+   "confidence": 0.951
+  },
+  {
+   "text": "1st STAGE",
+   "box": [
+    1256,
+    755,
+    1694,
+    828
+   ],
+   "angle": -0.68,
+   "confidence": 0.94
+  },
+  {
+   "text": "SEN",
+   "box": [
+    652,
+    804,
+    783,
+    863
+   ],
+   "angle": 1.72,
+   "confidence": 0.961
+  },
+  {
+   "text": "REDATICE",
+   "box": [
+    1245,
+    848,
+    1391,
+    874
+   ],
+   "angle": 0.0,
+   "confidence": 0.838
+  },
+  {
+   "text": "SINGLE",
+   "box": [
+    493,
+    872,
+    645,
+    960
+   ],
+   "angle": 0.0,
+   "confidence": 0.924
+  },
+  {
+   "text": "Expert12",
+   "box": [
+    636,
+    880,
+    933,
+    956
+   ],
+   "angle": 2.26,
+   "confidence": 0.979
+  },
+  {
+   "text": "Mam",
+   "box": [
+    1301,
+    881,
+    1425,
+    903
+   ],
+   "angle": 0.0,
+   "confidence": 0.501
+  },
+  {
+   "text": "RLETMO",
+   "box": [
+    1185,
+    964,
+    1223,
+    1280
+   ],
+   "angle": 0.0,
+   "confidence": 0.925
+  },
+  {
+   "text": "Scarlet Moon",
+   "box": [
+    1174,
+    1452,
+    1407,
+    1497
+   ],
+   "angle": 1.6,
+   "confidence": 0.942
+  },
+  {
+   "text": "891650",
+   "box": [
+    550,
+    1467,
+    1098,
+    1600
+   ],
+   "angle": 1.9,
+   "confidence": 0.999
+  },
+  {
+   "text": "REDALiCEfeaLAyumi Nomiya",
+   "box": [
+    1174,
+    1508,
+    1496,
+    1547
+   ],
+   "angle": 1.61,
+   "confidence": 0.91
+  },
+  {
+   "text": "NEW",
+   "box": [
+    751,
+    1603,
+    864,
+    1644
+   ],
+   "angle": 0.0,
+   "confidence": 0.988
+  },
+  {
+   "text": "NORD",
+   "box": [
+    933,
+    1610,
+    1037,
+    1641
+   ],
+   "angle": 0.0,
+   "confidence": 0.806
+  },
+  {
+   "text": "GOTEITRASTARSI",
+   "box": [
+    1218,
+    1645,
+    1421,
+    1680
+   ],
+   "angle": 1.46,
+   "confidence": 0.898
+  },
+  {
+   "text": "ories",
+   "box": [
+    167,
+    1685,
+    281,
+    1739
+   ],
+   "angle": 4.03,
+   "confidence": 0.978
+  },
+  {
+   "text": "Simple result",
+   "box": [
+    314,
+    1689,
+    591,
+    1742
+   ],
+   "angle": 1.07,
+   "confidence": 0.976
+  },
+  {
+   "text": "Details",
+   "box": [
+    702,
+    1695,
+    874,
+    1742
+   ],
+   "angle": 0.86,
+   "confidence": 0.983
+  },
+  {
+   "text": "Play Graph",
+   "box": [
+    970,
+    1699,
+    1255,
+    1755
+   ],
+   "angle": 1.56,
+   "confidence": 0.971
+  },
+  {
+   "text": "FLAF",
+   "box": [
+    1305,
+    1706,
+    1423,
+    1761
+   ],
+   "angle": 2.54,
+   "confidence": 0.977
+  },
+  {
+   "text": "Used calorie",
+   "box": [
+    1630,
+    1714,
+    1919,
+    1766
+   ],
+   "angle": 1.29,
+   "confidence": 0.977
+  },
+  {
+   "text": "FLAREIII",
+   "box": [
+    289,
+    1786,
+    419,
+    1825
+   ],
+   "angle": 1.72,
+   "confidence": 0.891
+  },
+  {
+   "text": "ENERGY",
+   "box": [
+    447,
+    1790,
+    590,
+    1827
+   ],
+   "angle": 1.03,
+   "confidence": 0.995
+  },
+  {
+   "text": "53.1%",
+   "box": [
+    1196,
+    1799,
+    1321,
+    1846
+   ],
+   "angle": 1.79,
+   "confidence": 0.996
+  },
+  {
+   "text": "FLARE!I",
+   "box": [
+    1601,
+    1813,
+    1735,
+    1850
+   ],
+   "angle": 1.1,
+   "confidence": 0.875
+  },
+  {
+   "text": "ENERGY",
+   "box": [
+    1764,
+    1815,
+    1912,
+    1853
+   ],
+   "angle": 1.0,
+   "confidence": 0.994
+  },
+  {
+   "text": "Marvelous",
+   "box": [
+    208,
+    1853,
+    442,
+    1905
+   ],
+   "angle": 1.27,
+   "confidence": 0.987
+  },
+  {
+   "text": "191",
+   "box": [
+    506,
+    1861,
+    585,
+    1905
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "FAST",
+   "box": [
+    628,
+    1862,
+    725,
+    1911
+   ],
+   "angle": 1.54,
+   "confidence": 0.99
+  },
+  {
+   "text": "SCORE",
+   "box": [
+    829,
+    1867,
+    984,
+    1914
+   ],
+   "angle": 0.95,
+   "confidence": 0.969
+  },
+  {
+   "text": "891.650",
+   "box": [
+    1220,
+    1872,
+    1395,
+    1920
+   ],
+   "angle": 1.28,
+   "confidence": 0.954
+  },
+  {
+   "text": "Mar",
+   "box": [
+    1834,
+    1886,
+    1919,
+    1939
+   ],
+   "angle": 0.0,
+   "confidence": 0.975
+  },
+  {
+   "text": "Perfect",
+   "box": [
+    276,
+    1899,
+    442,
+    1954
+   ],
+   "angle": 1.8,
+   "confidence": 0.99
+  },
+  {
+   "text": "129",
+   "box": [
+    506,
+    1905,
+    587,
+    1956
+   ],
+   "angle": 1.84,
+   "confidence": 0.999
+  },
+  {
+   "text": "59",
+   "box": [
+    643,
+    1912,
+    706,
+    1957
+   ],
+   "angle": 0.0,
+   "confidence": 0.998
+  },
+  {
+   "text": "BESTSCORE",
+   "box": [
+    831,
+    1916,
+    1095,
+    1963
+   ],
+   "angle": 1.41,
+   "confidence": 0.989
+  },
+  {
+   "text": "844.260",
+   "box": [
+    1219,
+    1917,
+    1394,
+    1969
+   ],
+   "angle": 2.13,
+   "confidence": 0.994
+  },
+  {
+   "text": "Great",
+   "box": [
+    305,
+    1946,
+    447,
+    2003
+   ],
+   "angle": 2.65,
+   "confidence": 0.99
+  },
+  {
+   "text": "MOTS",
+   "box": [
+    624,
+    1972,
+    726,
+    2017
+   ],
+   "angle": 0.0,
+   "confidence": 0.959
+  },
+  {
+   "text": "+47.390",
+   "box": [
+    1220,
+    1968,
+    1393,
+    2017
+   ],
+   "angle": 1.73,
+   "confidence": 0.994
+  },
+  {
+   "text": "Good",
+   "box": [
+    311,
+    1992,
+    437,
+    2046
+   ],
+   "angle": 4.26,
+   "confidence": 0.997
+  },
+  {
+   "text": "159",
+   "box": [
+    634,
+    2019,
+    716,
+    2063
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "EXSCORE",
+   "box": [
+    831,
+    2012,
+    1042,
+    2057
+   ],
+   "angle": 1.41,
+   "confidence": 0.984
+  },
+  {
+   "text": "O.K.",
+   "box": [
+    324,
+    2027,
+    449,
+    2099
+   ],
+   "angle": 5.53,
+   "confidence": 0.944
+  },
+  {
+   "text": "932",
+   "box": [
+    1302,
+    2015,
+    1394,
+    2066
+   ],
+   "angle": 1.63,
+   "confidence": 0.999
+  },
+  {
+   "text": "MAX COMBO",
+   "box": [
+    829,
+    2059,
+    1106,
+    2106
+   ],
+   "angle": 1.61,
+   "confidence": 0.967
+  },
+  {
+   "text": "140/417",
+   "box": [
+    1183,
+    2063,
+    1386,
+    2111
+   ],
+   "angle": 1.1,
+   "confidence": 0.994
+  },
+  {
+   "text": "iss",
+   "box": [
+    363,
+    2090,
+    446,
+    2138
+   ],
+   "angle": 3.73,
+   "confidence": 0.982
+  },
+  {
+   "text": "★★",
+   "box": [
+    1151,
+    2199,
+    1351,
+    2253
+   ],
+   "angle": 1.49,
+   "confidence": 0.957
+  },
+  {
+   "text": "Check your results!",
+   "box": [
+    73,
+    2254,
+    525,
+    2320
+   ],
+   "angle": 2.3,
+   "confidence": 0.94
+  },
+  {
+   "text": "Switch tabs with the",
+   "box": [
+    646,
+    2267,
+    1365,
+    2352
+   ],
+   "angle": 1.75,
+   "confidence": 0.957
+  },
+  {
+   "text": "buttons.",
+   "box": [
+    1466,
+    2294,
+    1771,
+    2368
+   ],
+   "angle": 3.19,
+   "confidence": 0.997
+  },
+  {
+   "text": "ONLINE",
+   "box": [
+    627,
+    2338,
+    777,
+    2387
+   ],
+   "angle": 1.98,
+   "confidence": 0.984
+  },
+  {
+   "text": "CREDIT:0",
+   "box": [
+    1342,
+    2361,
+    1529,
+    2410
+   ],
+   "angle": 1.59,
+   "confidence": 0.972
+  },
+  {
+   "text": "play data witl",
+   "box": [
+    1005,
+    2477,
+    1157,
+    2510
+   ],
+   "angle": 1.96,
+   "confidence": 0.928
+  },
+  {
+   "text": "USEMENT CARD",
+   "box": [
+    994,
+    2502,
+    1169,
+    2535
+   ],
+   "angle": 2.55,
+   "confidence": 0.958
+  },
+  {
+   "text": "CAUTION",
+   "box": [
+    1385,
+    2498,
+    1473,
+    2519
+   ],
+   "angle": 1.68,
+   "confidence": 0.994
+  },
+  {
+   "text": "Donot allow the followingpeopletoplay:",
+   "box": [
+    1293,
+    2512,
+    1594,
+    2546
+   ],
+   "angle": 2.21,
+   "confidence": 0.944
+  }
+ ]
+}

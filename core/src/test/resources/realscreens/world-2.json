@@ -1,0 +1,569 @@
+{
+ "source": "sample2.jpg",
+ "engine": "RapidOCR (PP-OCR, onnxruntime)",
+ "width": 1183,
+ "height": 2560,
+ "lines": [
+  {
+   "text": "we.go!",
+   "box": [
+    0,
+    285,
+    613,
+    485
+   ],
+   "angle": 2.53,
+   "confidence": 0.848
+  },
+  {
+   "text": "Dancee",
+   "box": [
+    268,
+    665,
+    416,
+    703
+   ],
+   "angle": -1.51,
+   "confidence": 0.839
+  },
+  {
+   "text": "RESUL",
+   "box": [
+    746,
+    675,
+    1180,
+    803
+   ],
+   "angle": 0.0,
+   "confidence": 0.988
+  },
+  {
+   "text": "Revolution",
+   "box": [
+    270,
+    667,
+    532,
+    747
+   ],
+   "angle": -6.89,
+   "confidence": 0.988
+  },
+  {
+   "text": "1st STAG",
+   "box": [
+    876,
+    805,
+    1179,
+    862
+   ],
+   "angle": 0.0,
+   "confidence": 0.926
+  },
+  {
+   "text": "SIRCHEEE",
+   "box": [
+    268,
+    839,
+    548,
+    888
+   ],
+   "angle": 1.05,
+   "confidence": 0.985
+  },
+  {
+   "text": "SINGLE",
+   "box": [
+    208,
+    897,
+    347,
+    973
+   ],
+   "angle": 0.0,
+   "confidence": 0.841
+  },
+  {
+   "text": "Expert13",
+   "box": [
+    333,
+    905,
+    592,
+    969
+   ],
+   "angle": 1.72,
+   "confidence": 0.96
+  },
+  {
+   "text": "（9",
+   "box": [
+    859,
+    1223,
+    974,
+    1289
+   ],
+   "angle": -1.3,
+   "confidence": 0.628
+  },
+  {
+   "text": "周年代一",
+   "box": [
+    868,
+    1288,
+    966,
+    1315
+   ],
+   "angle": 0.0,
+   "confidence": 0.811
+  },
+  {
+   "text": "GreatFullcombo!",
+   "box": [
+    321,
+    1365,
+    632,
+    1399
+   ],
+   "angle": -0.71,
+   "confidence": 0.981
+  },
+  {
+   "text": "向日葵",
+   "box": [
+    794,
+    1377,
+    971,
+    1410
+   ],
+   "angle": -0.83,
+   "confidence": 0.876
+  },
+  {
+   "text": "991280",
+   "box": [
+    275,
+    1406,
+    725,
+    1494
+   ],
+   "angle": -0.33,
+   "confidence": 0.999
+  },
+  {
+   "text": "ARM·（OSYS）X（女",
+   "box": [
+    792,
+    1419,
+    1123,
+    1448
+   ],
+   "angle": -0.45,
+   "confidence": 0.617
+  },
+  {
+   "text": "NEWRECORD!!!",
+   "box": [
+    442,
+    1497,
+    713,
+    1542
+   ],
+   "angle": -1.37,
+   "confidence": 0.964
+  },
+  {
+   "text": "GOTEYTR",
+   "box": [
+    825,
+    1528,
+    903,
+    1550
+   ],
+   "angle": 0.0,
+   "confidence": 0.874
+  },
+  {
+   "text": "FLAF",
+   "box": [
+    887,
+    1568,
+    979,
+    1609
+   ],
+   "angle": 0.0,
+   "confidence": 0.97
+  },
+  {
+   "text": "Use",
+   "box": [
+    1128,
+    1559,
+    1182,
+    1604
+   ],
+   "angle": 5.93,
+   "confidence": 0.931
+  },
+  {
+   "text": "Details",
+   "box": [
+    407,
+    1574,
+    549,
+    1618
+   ],
+   "angle": -1.57,
+   "confidence": 0.988
+  },
+  {
+   "text": "Play Graph",
+   "box": [
+    628,
+    1572,
+    850,
+    1614
+   ],
+   "angle": -0.67,
+   "confidence": 0.955
+  },
+  {
+   "text": "es",
+   "box": [
+    0,
+    1594,
+    51,
+    1632
+   ],
+   "angle": -6.08,
+   "confidence": 0.996
+  },
+  {
+   "text": "Simple result",
+   "box": [
+    79,
+    1581,
+    316,
+    1627
+   ],
+   "angle": -1.57,
+   "confidence": 0.975
+  },
+  {
+   "text": "99.3%",
+   "box": [
+    803,
+    1641,
+    897,
+    1674
+   ],
+   "angle": 0.0,
+   "confidence": 0.997
+  },
+  {
+   "text": "FLARE",
+   "box": [
+    1113,
+    1637,
+    1182,
+    1665
+   ],
+   "angle": 0.0,
+   "confidence": 0.971
+  },
+  {
+   "text": "FLAREI",
+   "box": [
+    66,
+    1662,
+    166,
+    1694
+   ],
+   "angle": -1.49,
+   "confidence": 0.985
+  },
+  {
+   "text": "ENERGY",
+   "box": [
+    196,
+    1657,
+    320,
+    1692
+   ],
+   "angle": -1.81,
+   "confidence": 0.992
+  },
+  {
+   "text": "SCORE",
+   "box": [
+    510,
+    1701,
+    637,
+    1739
+   ],
+   "angle": -1.76,
+   "confidence": 0.972
+  },
+  {
+   "text": "991.280",
+   "box": [
+    816,
+    1689,
+    952,
+    1728
+   ],
+   "angle": -1.64,
+   "confidence": 0.946
+  },
+  {
+   "text": "252",
+   "box": [
+    243,
+    1708,
+    316,
+    1750
+   ],
+   "angle": -2.07,
+   "confidence": 0.999
+  },
+  {
+   "text": "FAST",
+   "box": [
+    347,
+    1706,
+    430,
+    1745
+   ],
+   "angle": -1.81,
+   "confidence": 0.994
+  },
+  {
+   "text": "Marvelous",
+   "box": [
+    0,
+    1710,
+    199,
+    1764
+   ],
+   "angle": -3.39,
+   "confidence": 0.977
+  },
+  {
+   "text": "BESTSCORE",
+   "box": [
+    512,
+    1733,
+    725,
+    1774
+   ],
+   "angle": -1.75,
+   "confidence": 0.982
+  },
+  {
+   "text": "989.030",
+   "box": [
+    817,
+    1724,
+    951,
+    1763
+   ],
+   "angle": -1.67,
+   "confidence": 0.995
+  },
+  {
+   "text": "Perfect",
+   "box": [
+    52,
+    1751,
+    198,
+    1797
+   ],
+   "angle": -2.05,
+   "confidence": 0.988
+  },
+  {
+   "text": "80",
+   "box": [
+    266,
+    1747,
+    316,
+    1783
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "68",
+   "box": [
+    363,
+    1746,
+    416,
+    1779
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "+2.250",
+   "box": [
+    836,
+    1757,
+    951,
+    1799
+   ],
+   "angle": -2.6,
+   "confidence": 0.992
+  },
+  {
+   "text": "Great",
+   "box": [
+    79,
+    1786,
+    199,
+    1830
+   ],
+   "angle": -1.87,
+   "confidence": 0.984
+  },
+  {
+   "text": "MOTS",
+   "box": [
+    345,
+    1788,
+    431,
+    1825
+   ],
+   "angle": 0.0,
+   "confidence": 0.879
+  },
+  {
+   "text": "977",
+   "box": [
+    878,
+    1795,
+    946,
+    1828
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "EXSCORE",
+   "box": [
+    512,
+    1804,
+    682,
+    1844
+   ],
+   "angle": -2.2,
+   "confidence": 0.988
+  },
+  {
+   "text": "Good",
+   "box": [
+    85,
+    1819,
+    192,
+    1866
+   ],
+   "angle": -5.0,
+   "confidence": 0.962
+  },
+  {
+   "text": "19",
+   "box": [
+    367,
+    1827,
+    414,
+    1858
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "339/339",
+   "box": [
+    783,
+    1827,
+    943,
+    1866
+   ],
+   "angle": -1.39,
+   "confidence": 0.993
+  },
+  {
+   "text": "MAX COMD",
+   "box": [
+    510,
+    1836,
+    704,
+    1879
+   ],
+   "angle": -2.3,
+   "confidence": 0.861
+  },
+  {
+   "text": "Miss",
+   "box": [
+    107,
+    1895,
+    201,
+    1937
+   ],
+   "angle": 0.0,
+   "confidence": 0.987
+  },
+  {
+   "text": "buttons",
+   "box": [
+    989,
+    1981,
+    1182,
+    2026
+   ],
+   "angle": -0.77,
+   "confidence": 0.996
+  },
+  {
+   "text": "Switch tabs with the",
+   "box": [
+    370,
+    1986,
+    919,
+    2055
+   ],
+   "angle": -2.57,
+   "confidence": 0.95
+  },
+  {
+   "text": "Kyour results！",
+   "box": [
+    1,
+    2021,
+    272,
+    2074
+   ],
+   "angle": -4.14,
+   "confidence": 0.929
+  },
+  {
+   "text": "CREDITS:3",
+   "box": [
+    897,
+    2031,
+    1044,
+    2070
+   ],
+   "angle": -2.03,
+   "confidence": 0.989
+  },
+  {
+   "text": "ONLINE",
+   "box": [
+    352,
+    2054,
+    475,
+    2098
+   ],
+   "angle": -4.27,
+   "confidence": 0.982
+  }
+ ]
+}

@@ -1,0 +1,333 @@
+{
+ "source": "sample3.jpg",
+ "engine": "RapidOCR (PP-OCR, onnxruntime)",
+ "region": [
+  516,
+  1725,
+  1920,
+  2015
+ ],
+ "width": 3133,
+ "height": 647,
+ "lines": [
+  {
+   "text": "AREA",
+   "box": [
+    2950,
+    36,
+    3130,
+    90
+   ],
+   "angle": 0.0,
+   "confidence": 0.971
+  },
+  {
+   "text": "Marvelous",
+   "box": [
+    68,
+    64,
+    521,
+    157
+   ],
+   "angle": -0.59,
+   "confidence": 0.989
+  },
+  {
+   "text": "434",
+   "box": [
+    638,
+    64,
+    794,
+    137
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "FAST",
+   "box": [
+    878,
+    65,
+    1050,
+    138
+   ],
+   "angle": 0.0,
+   "confidence": 0.993
+  },
+  {
+   "text": "SCORE",
+   "box": [
+    1266,
+    68,
+    1548,
+    135
+   ],
+   "angle": 0.95,
+   "confidence": 0.969
+  },
+  {
+   "text": "999.910",
+   "box": [
+    2018,
+    68,
+    2342,
+    137
+   ],
+   "angle": 0.55,
+   "confidence": 0.989
+  },
+  {
+   "text": "RIVAL",
+   "box": [
+    2948,
+    128,
+    3131,
+    185
+   ],
+   "angle": 0.0,
+   "confidence": 0.98
+  },
+  {
+   "text": "Perfect",
+   "box": [
+    205,
+    152,
+    520,
+    243
+   ],
+   "angle": -0.57,
+   "confidence": 0.987
+  },
+  {
+   "text": "6",
+   "box": [
+    737,
+    156,
+    791,
+    227
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "2",
+   "box": [
+    933,
+    154,
+    996,
+    227
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "BESTSCORE",
+   "box": [
+    1268,
+    159,
+    1769,
+    226
+   ],
+   "angle": 0.71,
+   "confidence": 0.994
+  },
+  {
+   "text": "990.460",
+   "box": [
+    2018,
+    159,
+    2339,
+    224
+   ],
+   "angle": 0.0,
+   "confidence": 0.933
+  },
+  {
+   "text": "RIVAL",
+   "box": [
+    2944,
+    221,
+    3128,
+    275
+   ],
+   "angle": 0.0,
+   "confidence": 0.984
+  },
+  {
+   "text": "Great",
+   "box": [
+    264,
+    236,
+    524,
+    328
+   ],
+   "angle": 1.03,
+   "confidence": 0.992
+  },
+  {
+   "text": "IMOTS",
+   "box": [
+    873,
+    261,
+    1097,
+    341
+   ],
+   "angle": 1.6,
+   "confidence": 0.687
+  },
+  {
+   "text": "0916+",
+   "box": [
+    2070,
+    247,
+    2336,
+    311
+   ],
+   "angle": 0.0,
+   "confidence": 0.576
+  },
+  {
+   "text": "Good",
+   "box": [
+    278,
+    322,
+    515,
+    404
+   ],
+   "angle": -0.38,
+   "confidence": 0.995
+  },
+  {
+   "text": "RIVAL",
+   "box": [
+    2936,
+    311,
+    3127,
+    367
+   ],
+   "angle": 0.47,
+   "confidence": 0.981
+  },
+  {
+   "text": "EXSCORE",
+   "box": [
+    1271,
+    334,
+    1664,
+    398
+   ],
+   "angle": 0.45,
+   "confidence": 0.981
+  },
+  {
+   "text": "1359",
+   "box": [
+    2118,
+    333,
+    2332,
+    400
+   ],
+   "angle": 0.0,
+   "confidence": 0.996
+  },
+  {
+   "text": "7",
+   "box": [
+    940,
+    355,
+    1000,
+    423
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "O.K",
+   "box": [
+    305,
+    383,
+    534,
+    504
+   ],
+   "angle": 7.37,
+   "confidence": 0.858
+  },
+  {
+   "text": "13",
+   "box": [
+    701,
+    407,
+    804,
+    485
+   ],
+   "angle": 0.0,
+   "confidence": 0.999
+  },
+  {
+   "text": "4437443",
+   "box": [
+    1941,
+    418,
+    2331,
+    482
+   ],
+   "angle": 0.23,
+   "confidence": 0.934
+  },
+  {
+   "text": "MACHIN",
+   "box": [
+    2934,
+    406,
+    3131,
+    457
+   ],
+   "angle": 0.0,
+   "confidence": 0.959
+  },
+  {
+   "text": "MAXCOMBO...",
+   "box": [
+    1263,
+    421,
+    1848,
+    490
+   ],
+   "angle": 0.46,
+   "confidence": 0.911
+  },
+  {
+   "text": "Miss",
+   "box": [
+    321,
+    493,
+    527,
+    585
+   ],
+   "angle": 1.3,
+   "confidence": 0.98
+  },
+  {
+   "text": "0",
+   "box": [
+    750,
+    501,
+    796,
+    561
+   ],
+   "angle": 0.0,
+   "confidence": 0.51
+  },
+  {
+   "text": "HIGH SC",
+   "box": [
+    2925,
+    495,
+    3131,
+    555
+   ],
+   "angle": 0.0,
+   "confidence": 0.853
+  }
+ ]
+}
