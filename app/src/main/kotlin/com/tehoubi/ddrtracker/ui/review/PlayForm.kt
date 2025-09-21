@@ -46,6 +46,8 @@ data class PlayForm(
     val lowConfidence: Set<String> = emptySet(),
     /** Field name -> what OCR originally read, for auto-corrected fields. */
     val repaired: Map<String, Int> = emptyMap(),
+    /** Fields OCR couldn't read that were worked out from the other numbers. */
+    val inferred: Set<String> = emptySet(),
 ) {
     fun judgment(label: StatLabel): String = judgments[label].orEmpty()
 
@@ -79,8 +81,9 @@ data class PlayForm(
                 scanConfidence = listOfNotNull(r.title, r.score, r.difficulty, r.level)
                     .plus(StatLabel.JUDGMENTS.mapNotNull { r.stats[it] })
                     .minOfOrNull { it.confidence },
-                lowConfidence = low,
+                lowConfidence = low + scan.inferred,
                 repaired = scan.repaired,
+                inferred = scan.inferred,
             )
         }
 

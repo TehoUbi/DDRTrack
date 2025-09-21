@@ -5,6 +5,7 @@ import android.graphics.Rect
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tehoubi.ddrtracker.core.ocr.Box
 import com.tehoubi.ddrtracker.core.ocr.OcrElement
@@ -14,22 +15,28 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Which ML Kit model to read with. */
+enum class Script { LATIN, JAPANESE }
+
 /** Anything that can turn an image into positioned text. */
 interface TextRecognizerEngine {
     /** [rotationDegrees] is how far the image must turn clockwise to be upright. */
-    suspend fun recognize(bitmap: Bitmap, rotationDegrees: Int): OcrPage
+    suspend fun recognize(bitmap: Bitmap, rotationDegrees: Int, script: Script = Script.LATIN): OcrPage
 }
 
 /**
- * ML Kit's bundled Latin model: runs on-device, with no network or Play
- * Services download needed.
+ * ML Kit's bundled models: they run on-device, with no network or Play
+ * Services download. Latin for the numbers; Japanese (which also reads
+ * Latin) for song titles.
  */
 @Singleton
 class MlKitTextRecognizer @Inject constructor() : TextRecognizerEngine {
 
-    private val client = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    private val latin by lazy { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    private val japanese by lazy { TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()) }
 
-    override suspend fun recognize(bitmap: Bitmap, rotationDegrees: Int): OcrPage {
+    override suspend fun recognize(bitmap: Bitmap, rotationDegrees: Int, script: Script): OcrPage {
+        val client = if (script == Script.JAPANESE) japanese else latin
         val text = client.process(InputImage.fromBitmap(bitmap, rotationDegrees)).await()
         // Boxes come back in the upright frame.
         val sideways = rotationDegrees % 180 != 0
@@ -52,6 +59,7 @@ internal fun Text.toOcrPage(width: Int, height: Int) = OcrPage(
                     el.boundingBox?.let { OcrElement(el.text, it.toBox(), el.confidence) }
                 },
                 confidence = line.confidence,
+                angle = line.angle,
             )
         }
     },

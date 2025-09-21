@@ -22,7 +22,7 @@ data class LiveFrame(val page: OcrPage?, val quality: FrameQuality.Report)
  * rather than queueing them; the frame is closed only once ML Kit is done.
  */
 class LiveTextAnalyzer(
-    private val intervalMs: Long = 300,
+    private val intervalMs: Long = 350,
     private val onFrame: (LiveFrame) -> Unit,
 ) : ImageAnalysis.Analyzer {
 

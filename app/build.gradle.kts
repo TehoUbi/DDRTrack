@@ -107,6 +107,8 @@ dependencies {
 
     // ML Kit OCR
     implementation(libs.mlkit.text.recognition)
+    // Many DDR titles are Japanese; this model reads kana/kanji as well as Latin.
+    implementation(libs.mlkit.text.recognition.japanese)
 
     // Firebase
     implementation(platform(libs.firebase.bom))

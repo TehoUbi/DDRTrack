@@ -151,6 +151,9 @@ fun ReviewContent(
 private fun ScanSummary(form: PlayForm) {
     val flagged = form.lowConfidence.size
     val text = when {
+        form.inferred.isNotEmpty() ->
+            "Read the screen. ${form.inferred.size} small number${if (form.inferred.size > 1) "s were" else " was"} unreadable " +
+                "and worked out from the score, EX score and step count — they're highlighted."
         form.repaired.isNotEmpty() -> "Read the screen and corrected ${form.repaired.size} misread value${if (form.repaired.size > 1) "s" else ""}."
         flagged > 0 -> "Read the screen. $flagged field${if (flagged > 1) "s are" else " is"} highlighted — give them a look."
         else -> "Read the screen. Everything checks out."
@@ -290,9 +293,13 @@ private fun IssuesCard(check: FormCheck) {
 }
 
 private fun flagText(field: String, form: PlayForm, check: FormCheck): (@Composable () -> Unit)? {
-    val message = check.errors[field]
-        ?: form.repaired[field]?.let { "Corrected from $it" }
-        ?: if (field in form.lowConfidence) "Low confidence — check this" else null
+    val message = when {
+        field in check.errors -> check.errors.getValue(field)
+        field in form.repaired -> "Corrected from ${form.repaired.getValue(field)}"
+        field in form.inferred -> "Worked out from the score — check"
+        field in form.lowConfidence -> "Low confidence — check this"
+        else -> null
+    }
     return message?.let { { Text(it) } }
 }
 

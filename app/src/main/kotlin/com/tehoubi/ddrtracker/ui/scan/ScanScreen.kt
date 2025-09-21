@@ -176,10 +176,11 @@ private fun LiveCamera(viewModel: ScanViewModel, onReview: () -> Unit, uiState: 
             setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
             imageCaptureMode = ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY
             imageAnalysisBackpressureStrategy = ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-            // 720p keeps the digits legible from a step or two away from the cabinet.
+            // 1080p: the judgment digits are the smallest text on a cabinet
+            // screen, and at 720p they are only a few pixels tall.
             imageAnalysisResolutionSelector = ResolutionSelector.Builder()
                 .setResolutionStrategy(
-                    ResolutionStrategy(Size(1280, 720), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER)
+                    ResolutionStrategy(Size(1920, 1080), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER)
                 )
                 .build()
             setImageAnalysisAnalyzer(analysisExecutor, analyzer)
