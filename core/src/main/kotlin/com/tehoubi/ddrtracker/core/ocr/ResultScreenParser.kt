@@ -11,6 +11,7 @@ import com.tehoubi.ddrtracker.core.ocr.TextMatching.tolerance
 import com.tehoubi.ddrtracker.core.songs.SongCatalog
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 /**
  * Turns OCR output of a DDR result screen into structured fields.
@@ -38,6 +39,13 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         val confidence: Float,
     )
 
+    private companion object {
+        val RIGHT_COLUMN = setOf(StatLabel.SCORE, StatLabel.BEST_SCORE, StatLabel.EX_SCORE, StatLabel.MAX_COMBO)
+        /** Labels whose left edge bounds the judgment value column. */
+        val TAB_WORDS = listOf("SIMPLERESULT", "DETAILS", "PLAYGRAPH")
+        val COLUMN_FENCES = setOf(StatLabel.FAST, StatLabel.SLOW, StatLabel.SCORE, StatLabel.BEST_SCORE, StatLabel.EX_SCORE, StatLabel.MAX_COMBO)
+    }
+
     private val labelKeys: List<Pair<StatLabel, String>> = StatLabel.entries
         .flatMap { label -> label.spellings.map { label to labelKey(it) } }
         // Longest first so "EX SCORE" wins over "SCORE".
@@ -60,6 +68,45 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
             }
         }
     }
+
+    /**
+     * Where the stats panel is on [page], padded by a row, for a second,
+     * higher-resolution read. Its digits are the smallest text on screen and
+     * the first thing a downscaled pass loses. Null if no table labels were
+     * found.
+     */
+    fun statsRegion(page: OcrPage): Box? {
+        val straight = deskew(page)
+        val hits = findLabels(straight.lines).filter { it.label.isJudgment || it.label in RIGHT_COLUMN }
+        if (hits.size < 2) return null
+        val top = hits.minOf { it.box.top }
+        val bottom = hits.maxOf { it.box.bottom }
+        val row = hits.map { it.box.height }.median() ?: return null
+        val rowLines = page.lines.filter { it.box.centerY in (top - row).toFloat()..(bottom + row).toFloat() }
+        val left = hits.minOf { it.box.left } - row
+        val right = rowLines.maxOf { it.box.right } + row
+        // Deskewing moved boxes; pad by the drift so the tilted panel still fits.
+        val drift = (abs(page.lines.map { it.angle }.median() ?: 0f) / 57.3f * page.width).toInt()
+        return Box(left, top - row, right, bottom + row).expand(drift / 2, drift).clampTo(page)
+    }
+
+    /**
+     * The band between the difficulty banner and the stats panel where WORLD
+     * prints the song title, for a read with a recogniser that handles
+     * Japanese. Null if the banner wasn't found.
+     */
+    fun titleRegion(page: OcrPage): Box? {
+        val straight = deskew(page)
+        val banner = findChart(straight.lines).bannerBottom ?: return null
+        val hits = findLabels(straight.lines)
+        val tabs = straight.lines.filter { l -> labelKey(l.text).let { k -> TAB_WORDS.any { w -> k.contains(w) } } }.minOfOrNull { it.box.top }
+        val bottom = listOfNotNull(tabs, hits.filter { it.label.isJudgment }.minOfOrNull { it.box.top }).minOrNull() ?: return null
+        if (bottom <= banner) return null
+        return Box(0, banner, page.width, bottom).clampTo(page)
+    }
+
+    private fun Box.clampTo(page: OcrPage) =
+        Box(left.coerceAtLeast(0), top.coerceAtLeast(0), right.coerceAtMost(page.width), bottom.coerceAtMost(page.height))
 
     /** Both halves, for a side picker. Null when the screen has one table. */
     fun parseBothSides(page: OcrPage): Pair<ParsedResult, ParsedResult>? =
@@ -105,24 +152,43 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
     }
 
     private fun parseRegion(page: OcrPage): ParsedResult {
-        val lines = page.lines
+        val lines = deskew(page).lines
         val hits = findLabels(lines)
-        val used = mutableSetOf<Box>()
-
+        val tokens = numberTokens(lines, hits)
+        val used = mutableSetOf<NumberToken>()
         val stats = linkedMapOf<StatLabel, Field<Int>>()
-        for (hit in hits.sortedBy { it.label.ordinal }) {
-            if (hit.label == StatLabel.SCORE || hit.label in stats) continue
-            val number = valueFor(hit, lines, used, maxDigits = 5) ?: continue
-            used += number.first.box
-            stats[hit.label] = Field(number.first.value, number.second)
+        val rowHeight = hits.filter { it.label.isJudgment }.map { it.box.height }.median()
+            ?: hits.map { it.box.height }.median() ?: 24
+
+        // FAST / SLOW first: on WORLD their values sit under the labels, inside
+        // the judgment rows, and must not be taken for judgment counts.
+        readFastSlow(hits, tokens, used, rowHeight, stats)
+
+        // The right-hand column (SCORE, BEST SCORE, EX SCORE, MAX COMBO).
+        var comboTotal: Field<Int>? = null
+        for (hit in hits.filter { it.label in RIGHT_COLUMN }.sortedBy { it.label.ordinal }) {
+            if (hit.label in stats) continue
+            if (hit.label == StatLabel.MAX_COMBO) {
+                readCombo(hit, lines, tokens, used)?.let { (combo, total) ->
+                    stats[StatLabel.MAX_COMBO] = combo
+                    comboTotal = total
+                }
+                continue
+            }
+            val maxDigits = if (hit.label == StatLabel.SCORE || hit.label == StatLabel.BEST_SCORE) 7 else 5
+            rightOf(hit, tokens, used, maxDigits)?.let { (n, conf) ->
+                used += n
+                stats[hit.label] = Field(n.value, conf)
+            }
         }
 
-        val score = findScore(page, hits, used)
-        score?.let { used += it.first.box }
+        readJudgments(hits, tokens, used, rowHeight, stats)
 
+        val score = findScore(page, stats[StatLabel.SCORE], tokens, used)
+        stats.remove(StatLabel.SCORE)
         val chart = findChart(lines)
         val lampAndGrade = findLampAndGrade(lines)
-        val title = findTitle(page, hits, used)
+        val title = findTitle(page.copy(lines = lines), hits, chart.bannerBottom)
 
         return ParsedResult(
             title = title?.first,
@@ -130,12 +196,247 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
             style = chart.style,
             difficulty = chart.difficulty,
             level = chart.level,
-            score = score?.let { Field(it.first.value, it.second) },
+            score = score,
             stats = stats,
             grade = lampAndGrade.grade,
             lamp = lampAndGrade.lamp,
             failed = lampAndGrade.failed,
+            comboTotal = comboTotal,
+            labelsSeen = hits.map { it.label }.toSet() + stats.keys,
         )
+    }
+
+    // --- Geometry -----------------------------------------------------------
+
+    /**
+     * Rotates every box about the page centre by the median text angle, so
+     * "same row" means the same y. Photos of a cabinet are usually a degree
+     * or two off, which across the stats panel is most of a row.
+     */
+    internal fun deskew(page: OcrPage): OcrPage {
+        val angle = page.lines.filter { it.box.width > it.box.height * 2 }.map { it.angle }.median() ?: return page
+        if (abs(angle) < 0.5f) return page
+        val rad = Math.toRadians(-angle.toDouble())
+        val c = kotlin.math.cos(rad); val s = kotlin.math.sin(rad)
+        val cx = page.width / 2.0; val cy = page.height / 2.0
+        fun rotate(b: Box): Box {
+            val dx = b.centerX - cx; val dy = b.centerY - cy
+            val nx = cx + dx * c - dy * s
+            val ny = cy + dx * s + dy * c
+            val hw = b.width / 2.0; val hh = b.height / 2.0
+            return Box((nx - hw).toInt(), (ny - hh).toInt(), (nx + hw).toInt(), (ny + hh).toInt())
+        }
+        return page.copy(lines = page.lines.map { l ->
+            l.copy(box = rotate(l.box), elements = l.elements.map { it.copy(box = rotate(it.box)) }, angle = l.angle - angle)
+        })
+    }
+
+    /** Every number on the page except digits that are part of a label's line before the label. */
+    private fun numberTokens(lines: List<OcrLine>, hits: List<LabelHit>): List<NumberToken> =
+        lines.flatMapIndexed { idx, line ->
+            val firstAfterLabel = hits.filter { it.lineIndex == idx }.minOfOrNull { it.nextElement } ?: 0
+            val rest = if (firstAfterLabel > 0) line.copy(elements = line.elements.drop(firstAfterLabel)) else line
+            Numbers.numbersInLine(rest, idx, lenient = true)
+        }
+
+    private fun List<Int>.median(): Int? = if (isEmpty()) null else sorted()[size / 2]
+    private fun List<Float>.median(): Float? = if (isEmpty()) null else sorted()[size / 2]
+
+    // --- Stats table ----------------------------------------------------------
+
+    private fun readFastSlow(
+        hits: List<LabelHit>,
+        tokens: List<NumberToken>,
+        used: MutableSet<NumberToken>,
+        rowHeight: Int,
+        stats: MutableMap<StatLabel, Field<Int>>,
+    ) {
+        fun below(label: Box) = tokens.filter { n ->
+            n !in used && n.digits.length <= 4 &&
+                n.box.top >= label.top + label.height / 2 && n.box.top - label.bottom < rowHeight * 1.6f &&
+                n.box.centerX >= label.left - rowHeight && n.box.centerX <= label.right + rowHeight
+        }.minByOrNull { it.box.top }
+
+        val fast = hits.firstOrNull { it.label == StatLabel.FAST }
+        val slow = hits.firstOrNull { it.label == StatLabel.SLOW }
+        for (hit in listOfNotNull(fast, slow)) {
+            val n = below(hit.box) ?: rightOf(hit, tokens, used, maxDigits = 4, maxGap = rowHeight * 3f)?.first ?: continue
+            used += n
+            stats[hit.label] = Field(n.value, confidence(n, hit.confidence, 0.9f))
+        }
+        // SLOW's stylised label often fails OCR; its value is the next number down the FAST column.
+        if (fast != null && slow == null && StatLabel.FAST in stats) {
+            val fastValue = used.last()
+            tokens.filter { n ->
+                n !in used && n.digits.length <= 4 && n.box.top > fastValue.box.bottom &&
+                    n.box.top - fastValue.box.bottom < rowHeight * 4 &&
+                    abs(n.box.centerX - fast.box.centerX) < fast.box.width
+            }.minByOrNull { it.box.top }?.let { n ->
+                used += n
+                stats[StatLabel.SLOW] = Field(n.value, confidence(n, 0.8f, 0.85f))
+            }
+        }
+    }
+
+    /** MAX COMBO's value: "140 / 417" as one token or several, giving combo and step total. */
+    private fun readCombo(
+        hit: LabelHit,
+        lines: List<OcrLine>,
+        tokens: List<NumberToken>,
+        used: MutableSet<NumberToken>,
+    ): Pair<Field<Int>, Field<Int>?>? {
+        val rowTexts = lines.withIndex().filter { (idx, l) ->
+            (idx == hit.lineIndex || l.box.verticalOverlap(hit.box) >= 0.45f) && l.box.right > hit.box.right
+        }.sortedBy { it.value.box.left }
+        // Text to the right of the label on its row, read as one string.
+        val tail = rowTexts.joinToString(" ") { (idx, l) ->
+            if (idx == hit.lineIndex) l.elements.drop(hit.nextElement).joinToString(" ") { it.text } else l.text
+        }
+        val conf = hit.confidence * 0.9f
+        // "140/417", "140 / 417" or "140/ 417", possibly followed by other text on the row.
+        val words = tail.split(' ').filter { it.isNotBlank() }
+        (1..minOf(3, words.size)).firstNotNullOfOrNull { n -> Numbers.comboPair(words.take(n).joinToString("")) }?.let { (combo, total) ->
+            tokens.filter { it.lineIndex in rowTexts.map { r -> r.index } }.forEach { used += it }
+            return Field(combo, conf) to Field(total, conf)
+        }
+        return rightOf(hit, tokens, used, maxDigits = 4)?.let { (n, c) ->
+            used += n
+            Field(n.value, c) to null
+        }
+    }
+
+    /**
+     * The number belonging to a label: next on the same line, or the closest
+     * one to the right on the same row within [maxGap].
+     */
+    private fun rightOf(
+        hit: LabelHit,
+        tokens: List<NumberToken>,
+        used: Set<NumberToken>,
+        maxDigits: Int,
+        maxGap: Float = Float.MAX_VALUE,
+    ): Pair<NumberToken, Float>? {
+        tokens.firstOrNull { it.lineIndex == hit.lineIndex && it !in used && it.digits.length <= maxDigits && it.box.left >= hit.box.left }
+            ?.let { return it to confidence(it, hit.confidence, 1f) }
+        val nearest = tokens.filter { n ->
+            n !in used && n.digits.length <= maxDigits &&
+                n.box.left >= hit.box.right - hit.box.height &&
+                n.box.left - hit.box.right <= maxGap &&
+                n.box.verticalOverlap(hit.box) >= 0.45f
+        }.minByOrNull { it.box.left - hit.box.right } ?: return null
+        return nearest to confidence(nearest, hit.confidence, 0.92f)
+    }
+
+    /**
+     * Reads the six judgment counts as a column. The rows come in a fixed
+     * order at an even pitch, so the row positions are fitted from whichever
+     * labels were recognised; a row whose label OCR missed still has a known
+     * y. A value has to lie right of the labels and left of whatever sits to
+     * their right (the FAST/SLOW box, the score column), so those numbers
+     * can't be taken for a count. A tall token spanning several rows is
+     * stacked single digits read as one ("70" over Great and Good).
+     */
+    private fun readJudgments(
+        hits: List<LabelHit>,
+        tokens: List<NumberToken>,
+        used: MutableSet<NumberToken>,
+        rowHeight: Int,
+        stats: MutableMap<StatLabel, Field<Int>>,
+    ) {
+        val allJudgmentHits = hits.filter { it.label.isJudgment }
+        val judgmentHits = mainColumn(allJudgmentHits)
+        val rows = judgmentHits?.let { fitRows(it, rowHeight) }
+        if (judgmentHits == null || rows == null) {
+            // Too few labels for a row model: fall back to each label's own row.
+            for (hit in allJudgmentHits) {
+                if (hit.label in stats) continue
+                rightOf(hit, tokens, used, maxDigits = 4)?.let { (n, c) -> used += n; stats[hit.label] = Field(n.value, c) }
+            }
+            return
+        }
+        // Labels are right-aligned on WORLD and left-aligned elsewhere; the
+        // shortest one's right edge is where values can start.
+        val labelsRight = judgmentHits.minOf { it.box.right }
+        // Without anything to the right, the column runs to the edge; the
+        // nearest number on each row wins.
+        val fence = hits.filter { it.label in COLUMN_FENCES && it.box.left > judgmentHits.maxOf { j -> j.box.right } }
+            .minOfOrNull { it.box.left } ?: Int.MAX_VALUE / 2
+        val column = tokens.filter { n ->
+            n !in used && n.digits.length <= 4 &&
+                n.box.left >= labelsRight - rowHeight && n.box.right <= fence + rowHeight / 3 &&
+                n.box.bottom >= rows.centerOf(0) - rowHeight && n.box.top <= rows.centerOf(5) + rowHeight
+        }.sortedBy { it.box.left }
+
+        val byRow = arrayOfNulls<Pair<Int, Float>>(6)
+        for (n in column) {
+            val spanned = (0..5).filter { k -> rows.centerOf(k) in n.box.top.toFloat()..n.box.bottom.toFloat() }
+            val labelConf = { k: Int -> judgmentHits.firstOrNull { it.label == StatLabel.JUDGMENTS[k] }?.confidence ?: 0.8f }
+            if (spanned.size >= 2 && n.digits.length == spanned.size) {
+                // Stacked digits: one per row, top to bottom.
+                spanned.forEachIndexed { i, k ->
+                    if (byRow[k] == null) byRow[k] = n.digits[i].digitToInt() to confidence(n, labelConf(k), 0.7f)
+                }
+                used += n
+                continue
+            }
+            val k = rows.nearest(n.box.centerY)
+            if (abs(rows.centerOf(k) - n.box.centerY) > rows.pitch * 0.45f) continue
+            if (byRow[k] == null) {
+                byRow[k] = n.value to confidence(n, labelConf(k), if (judgmentHits.any { it.label == StatLabel.JUDGMENTS[k] }) 0.95f else 0.8f)
+                used += n
+            }
+        }
+        byRow.forEachIndexed { k, v -> v?.let { stats[StatLabel.JUDGMENTS[k]] = Field(it.first, it.second) } }
+    }
+
+    /** Judgment labels of one table: the left-most cluster, if the screen shows more than one. */
+    private fun mainColumn(judgmentHits: List<LabelHit>): List<LabelHit>? {
+        if (judgmentHits.size < 2) return null
+        val anchor = judgmentHits.minBy { it.box.left }
+        val column = judgmentHits.filter { it.box.left - anchor.box.right < anchor.box.width }
+        return column.groupBy { it.label }.map { (_, same) -> same.minBy { it.box.top } }.takeIf { it.size >= 2 }
+    }
+
+    /** Row k's centre is top + k * pitch, fitted by least squares over the labels found. */
+    private class Rows(val top: Float, val pitch: Float) {
+        fun centerOf(k: Int) = top + k * pitch
+        fun nearest(y: Float) = ((y - top) / pitch).roundToInt().coerceIn(0, 5)
+    }
+
+    private fun fitRows(hits: List<LabelHit>, rowHeight: Int): Rows? {
+        val pts = hits.map { StatLabel.JUDGMENTS.indexOf(it.label).toFloat() to it.box.centerY }
+        val distinct = pts.map { it.first }.distinct()
+        if (distinct.size < 2) return null
+        val mx = pts.map { it.first }.average().toFloat()
+        val my = pts.map { it.second }.average().toFloat()
+        val sxx = pts.sumOf { ((it.first - mx) * (it.first - mx)).toDouble() }.toFloat()
+        val sxy = pts.sumOf { ((it.first - mx) * (it.second - my)).toDouble() }.toFloat()
+        val pitch = sxy / sxx
+        // A pitch far from the text height means the labels were misassigned.
+        if (pitch < rowHeight * 0.6f || pitch > rowHeight * 2.5f) return null
+        return Rows(my - pitch * mx, pitch)
+    }
+
+    private fun confidence(n: NumberToken, labelConf: Float, placement: Float): Float =
+        (n.confidence * labelConf * placement * 0.8f.pow(n.substitutions)).coerceIn(0f, 1f)
+
+    // --- Score ------------------------------------------------------------
+
+    /**
+     * The score from the SCORE row if there is one, cross-checked against
+     * the big number at the top; otherwise the tallest 5-7 digit number.
+     */
+    private fun findScore(page: OcrPage, labelled: Field<Int>?, tokens: List<NumberToken>, used: Set<NumberToken>): Field<Int>? {
+        val big = tokens.filter { it !in used && it.digits.length in 5..7 && it.value <= 1_000_000 }
+            .maxByOrNull { it.box.height }
+        val labelledOk = labelled?.takeIf { it.value <= 1_000_000 && it.value >= 1000 }
+        return when {
+            labelledOk != null && big != null && big.value == labelledOk.value ->
+                Field(labelledOk.value, minOf(1f, labelledOk.confidence + 0.1f))
+            labelledOk != null -> labelledOk
+            big != null -> Field(big.value, confidence(big, 1f, 0.85f))
+            else -> null
+        }
     }
 
     // --- Labels -----------------------------------------------------------
@@ -187,64 +488,10 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         return best
     }
 
-    /**
-     * The number belonging to a label: next on the same line if there is one,
-     * otherwise the closest number to the right on the same row.
-     */
-    private fun valueFor(
-        hit: LabelHit,
-        lines: List<OcrLine>,
-        used: Set<Box>,
-        maxDigits: Int,
-    ): Pair<NumberToken, Float>? {
-        val line = lines[hit.lineIndex]
-        val rest = line.copy(elements = line.elements.drop(hit.nextElement))
-        Numbers.numbersInLine(rest, hit.lineIndex, lenient = true)
-            .firstOrNull { it.digits.length <= maxDigits && it.box !in used }
-            ?.let { return it to confidence(it, hit.confidence, 1f) }
-
-        val candidates = lines.flatMapIndexed { idx, l ->
-            if (idx == hit.lineIndex) emptyList() else Numbers.numbersInLine(l, idx, lenient = true)
-        }.filter { n ->
-            n.box !in used &&
-                n.digits.length <= maxDigits &&
-                n.box.left >= hit.box.right - hit.box.height &&
-                n.box.verticalOverlap(hit.box) >= 0.45f &&
-                lines[n.lineIndex].elements.none { findLabelsInText(it.text) }
-        }
-        val nearest = candidates.minByOrNull { it.box.left - hit.box.right } ?: return null
-        return nearest to confidence(nearest, hit.confidence, 0.92f)
-    }
-
     /** Labels are words; "6000" must not be read as GOOD. */
     private fun mostlyLetters(text: String): Boolean {
         val letters = text.count { it.isLetter() }
         return letters > 0 && letters >= text.count { it.isDigit() }
-    }
-
-    private fun findLabelsInText(text: String): Boolean {
-        if (!mostlyLetters(text)) return false
-        val key = labelKey(text)
-        return key.length >= 3 && labelKeys.any { (_, s) -> levenshtein(key, s) <= tolerance(s.length) }
-    }
-
-    private fun confidence(n: NumberToken, labelConf: Float, placement: Float): Float =
-        (n.confidence * labelConf * placement * 0.8f.pow(n.substitutions)).coerceIn(0f, 1f)
-
-    // --- Score ------------------------------------------------------------
-
-    private fun findScore(page: OcrPage, hits: List<LabelHit>, used: Set<Box>): Pair<NumberToken, Float>? {
-        hits.filter { it.label == StatLabel.SCORE }.forEach { hit ->
-            valueFor(hit, page.lines, used, maxDigits = 7)
-                ?.takeIf { it.first.value <= 1_000_000 && it.first.digits.length >= 4 }
-                ?.let { return it }
-        }
-        // No label: the score is the biggest six- or seven-digit number on screen.
-        val candidates = page.lines.flatMapIndexed { idx, line -> Numbers.numbersInLine(line, idx) }
-            .filter { it.box !in used && it.digits.length in 5..7 && it.value <= 1_000_000 }
-        val biggest = candidates.maxByOrNull { it.box.height } ?: return null
-        val placement = if (candidates.size == 1) 0.9f else 0.8f
-        return biggest to confidence(biggest, 1f, placement)
     }
 
     // --- Chart ------------------------------------------------------------
@@ -253,6 +500,8 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         val style: Field<PlayStyle>?,
         val difficulty: Field<Difficulty>?,
         val level: Field<Int>?,
+        /** Bottom of the "SINGLE STYLE Expert 12" banner; the song title sits below it on WORLD. */
+        val bannerBottom: Int?,
     )
 
     private val styleWords = mapOf(
@@ -264,6 +513,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         var difficulty: Field<Difficulty>? = null
         var level: Field<Int>? = null
         var style: Field<PlayStyle>? = null
+        var bannerBottom: Int? = null
 
         for ((idx, line) in lines.withIndex()) {
             line.elements.forEachIndexed { i, el ->
@@ -278,6 +528,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
                     levenshtein(wordPart, d.name) <= tolerance(d.name.length)
                 } ?: return@forEachIndexed
                 difficulty = Field(match, el.confidence * if (wordPart == match.name) 1f else 0.85f)
+                bannerBottom = line.box.bottom
 
                 val levelText = fused?.groupValues?.get(2)
                     ?: line.elements.drop(i + 1).firstNotNullOfOrNull { Numbers.read(it.text, lenient = true)?.digits }
@@ -287,7 +538,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
                 }
             }
         }
-        return ChartFields(style, difficulty, level)
+        return ChartFields(style, difficulty, level, bannerBottom)
     }
 
     /** A 1-2 digit number on the same row as, or just below, the difficulty name. */
@@ -342,51 +593,83 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
 
     // --- Title ------------------------------------------------------------
 
-    private val notTitles = setOf(
-        "RESULT", "RESULTS", "STAGE", "NEWRECORD", "RECORD", "PLAYER", "IP", "ZP", "TOTAL",
-        "DANCEDANCEREVOLUTION", "DDR", "WORLD", "AIII", "CLEARED", "FAILED", "KCAL", "CALORIE",
-        "BPM", "TARGET", "RIVAL", "BEST", "HIGHSCORE", "PRESSSTART", "COURSE", "EXTRASTAGE",
-        "FINALSTAGE", "ISTSTAGE", "ZNDSTAGE", "SRDSTAGE", "GREATS", "FULLCOMBO", "FLARE",
+    /** Text on and around a result screen that is never a song title. */
+    private val notTitleParts = listOf(
+        "RESULT", "STAGE", "RECORD", "DANCEDANCE", "DANCEIDANCE", "REVOLUTION", "KONAMI", "BEMANI", "AMUSEMENT",
+        "EXTRASTAR", "SIMPLERESULT", "DETAILS", "PLAYGRAPH", "FLARE", "ENERGY", "CALORIE", "CHECKYOUR",
+        "SWITCHTABS", "BUTTONS", "ONLINE", "CREDIT", "FULLCOMBO", "FULCOMBO", "HEREWEGO", "CAUTION",
+        "COPYRIGHT", "PLAYDATA", "PRESSSTART", "HIGHSCORE", "RIVAL", "MACHINE", "TOTAL", "PLAYER", "CLEARED",
     )
 
+    private fun isNotTitle(text: String): Boolean {
+        val key = labelKey(text.trimEnd { it.isDigit() || it.isWhitespace() })
+        if (key.length >= 5 && notTitleParts.any { part -> key.contains(part) || (key.length <= part.length + 3 && levenshtein(key, part) <= 2) }) return true
+        if (Difficulty.entries.any { levenshtein(key, it.name) <= 1 } || key in styleWords) return true
+        return lampPhrases.any { (phrase, _) -> key.length >= 8 && levenshtein(key, phrase) <= 3 }
+    }
+
     /**
-     * Picks the song title (and the artist line under it) from text that is
-     * not part of the stats table: large, in the top part of the screen, and
-     * mostly letters.
+     * Finds the song title and artist.
+     *
+     * On WORLD they are small text under the jacket, the title with the
+     * artist directly beneath it, between the difficulty banner and the stats
+     * panel; above them sit the player name, "RESULTS" and cabinet decals. So
+     * the best evidence is a pair of left-aligned stacked lines with the lower
+     * one no bigger, preferably below the banner. A lone line is only a
+     * low-confidence guess, flagged for the player to check. A catalog match
+     * beats both.
      */
-    private fun findTitle(page: OcrPage, hits: List<LabelHit>, used: Set<Box>): Pair<Field<String>, Field<String>?>? {
+    private fun findTitle(page: OcrPage, hits: List<LabelHit>, bannerBottom: Int?): Pair<Field<String>, Field<String>?>? {
         val labelLines = hits.map { it.lineIndex }.toSet()
-        val tableTop = hits.filter { it.label.isJudgment }.minOfOrNull { it.box.top } ?: page.height
+        // The details panel's tab row ("Simple result", "Details", "Play Graph")
+        // or else the table itself bounds the title from below.
+        val tabsTop = page.lines.filter { l -> labelKey(l.text).let { k -> TAB_WORDS.any { w -> k.contains(w) } } }.minOfOrNull { it.box.top }
+        val tableTop = listOfNotNull(tabsTop, hits.filter { it.label.isJudgment || it.label in RIGHT_COLUMN }.minOfOrNull { it.box.top })
+            .minOrNull() ?: page.height
         val candidates = page.lines.withIndex().filter { (idx, line) ->
             val text = line.text.trim()
-            val key = labelKey(text)
             idx !in labelLines &&
-                line.box !in used &&
                 line.box.bottom <= tableTop &&
+                line.box.height <= line.box.width * 1.2f && // not vertical text on the jacket
+                text.length in 2..48 &&
                 text.count { it.isLetter() } >= 2 &&
                 text.count { it.isDigit() } * 2 < text.length &&
-                key !in notTitles &&
-                notTitles.none { key.startsWith(it) && key.length - it.length <= 3 } &&
-                Difficulty.entries.none { levenshtein(key, it.name) <= 1 } &&
                 Grade.fromLabel(text) == null &&
-                key !in styleWords
-        }.map { it.value }
+                !isNotTitle(text)
+        }.map { it.value }.let { all ->
+            // WORLD puts the title below the difficulty banner, with the
+            // player name and cabinet text above it; when anything readable is
+            // below the banner, only that is considered.
+            val below = bannerBottom?.let { b -> all.filter { it.box.top >= b } }.orEmpty()
+            below.ifEmpty { all }
+        }
         if (candidates.isEmpty()) return null
 
-        val ranked = candidates.sortedByDescending { line ->
-            val positional = 1f - line.box.top / page.height.toFloat()
-            line.box.height * (1f + positional) + line.text.length * 0.5f
+        catalog?.let { matchCatalog(it, candidates) }?.let { (line, field) ->
+            return field to artistUnder(line, candidates)?.let { Field(it.text.trim(), it.confidence * 0.75f) }
         }
-        val known = catalog?.let { matchCatalog(it, ranked) }
-        val title = known?.first ?: ranked.first()
-        val artist = candidates
-            .filter { it !== title && it.box.top >= title.box.bottom - title.box.height / 4 }
-            .filter { it.box.top - title.box.bottom < title.box.height * 2 && it.box.height <= title.box.height }
-            .minByOrNull { it.box.top }
-        val titleField = known?.second ?: Field(title.text.trim(), title.confidence * 0.7f)
 
-        return titleField to artist?.let { Field(it.text.trim(), it.confidence * 0.6f) }
+        val pairs = candidates.flatMap { a ->
+            candidates.filter { b ->
+                b !== a && b.box.top >= a.box.bottom - a.box.height * 0.3f &&
+                    b.box.top - a.box.bottom <= a.box.height * 0.9f &&
+                    abs(b.box.left - a.box.left) <= a.box.height * 1.2f &&
+                    b.box.height <= a.box.height * 1.15f
+            }.map { b -> a to b }
+        }
+        val best = pairs.maxByOrNull { (a, _) -> a.box.bottom }
+        if (best != null) {
+            val (title, artist) = best
+            return Field(title.text.trim(), title.confidence * 0.85f) to Field(artist.text.trim(), artist.confidence * 0.75f)
+        }
+        val lone = candidates.maxBy { it.box.height }
+        return Field(lone.text.trim(), lone.confidence * 0.4f) to null
     }
+
+    private fun artistUnder(title: OcrLine, candidates: List<OcrLine>): OcrLine? = candidates
+        .filter { it !== title && it.box.top >= title.box.bottom - title.box.height / 4 }
+        .filter { it.box.top - title.box.bottom < title.box.height * 1.5f && it.box.height <= title.box.height * 1.15f }
+        .minByOrNull { it.box.top }
 
     /**
      * Matches candidate lines, and pairs of stacked lines for titles that

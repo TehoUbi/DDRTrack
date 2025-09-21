@@ -84,9 +84,23 @@ class ScanValidatorTest {
     }
 
     @Test
-    fun `missing rows are listed`() {
+    fun `unreadable rows are worked out from the totals`() {
         val base = butterflyPfc()
-        val p = base.copy(lines = base.lines.filterNot { it.text == "GOOD" })
+        // Label and value both unreadable (the value is the only "0" on its row).
+        val p = base.copy(lines = base.lines.filterNot { it.text == "GOOD" || (it.text == "0" && it.box.top == 502) })
+        val c = check(p)
+        assertEquals(0, c.result.stats[StatLabel.GOOD]?.value)
+        assertEquals(setOf("good"), c.inferred)
+        assertTrue(c.isConsistent)
+    }
+
+    @Test
+    fun `rows that can't be worked out are listed`() {
+        val base = butterflyPfc()
+        // No EX score and no score: nothing to work Good out from.
+        val p = base.copy(lines = base.lines.filterNot {
+            it.text == "GOOD" || (it.text == "0" && it.box.top == 502) || it.text == "EX SCORE" || it.text == "1482" || it.text == "999,880"
+        })
         val c = check(p)
         assertTrue(c.issues.any { it.field == "good" })
         assertNull(c.result.stats[StatLabel.GOOD])

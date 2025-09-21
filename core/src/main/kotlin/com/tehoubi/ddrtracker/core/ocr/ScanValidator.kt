@@ -11,13 +11,16 @@ data class ScanIssue(val field: String?, val message: String, val severity: Seve
 /**
  * The parsed result after cross-checking, with any repairs applied.
  *
- * [repaired] maps a field name to the value OCR originally produced.
+ * [repaired] maps a field name to the value OCR originally produced;
+ * [inferred] names fields OCR couldn't read that were worked out from the
+ * rest of the screen.
  */
 data class CheckedScan(
     val result: ParsedResult,
     val issues: List<ScanIssue>,
     val repaired: Map<String, Int>,
     val inferredNg: Int?,
+    val inferred: Set<String> = emptySet(),
 ) {
     val isConsistent: Boolean get() = issues.none { it.severity >= Severity.WARNING }
 }
@@ -37,7 +40,7 @@ object ScanValidator {
 
     /** Digit pairs that OCR mixes up on the result screen's font. Symmetric. */
     private val lookAlikes: Map<Char, Set<Char>> = listOf(
-        "08", "06", "09", "17", "14", "27", "23", "38", "35", "49", "56", "58", "68", "89",
+        "08", "06", "09", "17", "14", "27", "23", "38", "35", "49", "56", "58", "68", "69", "89",
     ).flatMap { listOf(it[0] to it[1], it[1] to it[0]) }
         .groupBy({ it.first }, { it.second })
         .mapValues { it.value.toSet() }
@@ -46,10 +49,24 @@ object ScanValidator {
 
     fun check(parsed: ParsedResult): CheckedScan {
         val repaired = linkedMapOf<String, Int>()
+        val inferred = linkedSetOf<String>()
         var result = parsed
 
+        // Unread or contradicted judgment rows, worked out from the totals.
+        JudgmentSolver.solve(result)?.let { sol ->
+            val rows = sol.filled + sol.replaced.keys
+            val values = mapOf(
+                StatLabel.MARVELOUS to sol.judgments.marvelous, StatLabel.PERFECT to sol.judgments.perfect,
+                StatLabel.GREAT to sol.judgments.great, StatLabel.GOOD to sol.judgments.good,
+                StatLabel.OK to sol.judgments.ok, StatLabel.MISS to sol.judgments.miss,
+            )
+            result = result.copy(stats = result.stats + rows.associateWith { Field(values.getValue(it), 0.7f) })
+            inferred += sol.filled.map { it.fieldName }
+            sol.replaced.forEach { (label, old) -> repaired[label.fieldName] = old }
+        }
+
         val fix = if (!isConsistent(result)) findRepair(result) else null
-        if (fix != null) {
+        if (fix != null && fix.first !in repaired) {
             repaired[fix.first] = valueOf(result, fix.first)!!
             result = withValue(result, fix.first, fix.second)
         }
@@ -93,6 +110,11 @@ object ScanValidator {
                 issues += ScanIssue("maxCombo", "Max combo $combo is more than the chart's ${j.total} objects", Severity.WARNING)
             }
         }
+        result.comboTotal?.value?.let { total ->
+            if (result.hasAllJudgments && j.steps != total) {
+                issues += ScanIssue(null, "The judgments add up to ${j.steps} steps but the screen says $total", Severity.WARNING)
+            }
+        }
 
         // Grade and lamp are better derived than read: the grade is a stylised
         // graphic and the lamp text is small.
@@ -119,7 +141,14 @@ object ScanValidator {
         repaired.forEach { (field, old) ->
             issues += ScanIssue(field, "Corrected $field from $old to ${valueOf(result, field)}", Severity.INFO)
         }
-        return CheckedScan(result, issues, repaired, ng)
+        if (inferred.isNotEmpty()) {
+            issues += ScanIssue(
+                null,
+                "Couldn't read ${inferred.joinToString()}; worked out from the score, EX score and step count",
+                Severity.INFO,
+            )
+        }
+        return CheckedScan(result, issues, repaired, ng, inferred)
     }
 
     private fun minConfidence(r: ParsedResult): Float =
@@ -131,6 +160,7 @@ object ScanValidator {
         if (!r.hasAllJudgments) return@buildList
         val j = r.judgments()
         r.exScore?.let { add(it.value == DdrScoring.exScore(j)) }
+        r.comboTotal?.let { add(it.value == j.steps) }
         r.score?.let { s ->
             add(s.value % 10 == 0 && s.value <= DdrScoring.MAX_SCORE)
             if (!r.failed) add(DdrScoring.inferNg(j, s.value, maxNg = maxNg) != null)

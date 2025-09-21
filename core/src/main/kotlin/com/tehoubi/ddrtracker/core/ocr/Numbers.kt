@@ -13,6 +13,28 @@ data class NumberToken(
 
 internal object Numbers {
 
+    /**
+     * "140/417", "140 / 417", or "4437443" when OCR reads the slash as a 7 or
+     * 1: a max combo and the chart's step count. Returns null unless the
+     * first number is no bigger than the second.
+     */
+    fun comboPair(raw: String): Pair<Int, Int>? {
+        val text = raw.replace(" ", "")
+        val slash = text.indexOfAny(charArrayOf('/', '\\', '|'))
+        if (slash > 0) {
+            val a = read(text.substring(0, slash), lenient = true)?.digits?.toIntOrNull()
+            val b = read(text.substring(slash + 1), lenient = true)?.digits?.toIntOrNull()
+            return if (a != null && b != null && a <= b) a to b else null
+        }
+        val digits = read(text, lenient = true)?.digits ?: return null
+        if (digits.length % 2 == 0 || digits.length < 3) return null
+        val mid = digits.length / 2
+        if (digits[mid] != '7' && digits[mid] != '1') return null
+        val a = digits.substring(0, mid).toInt()
+        val b = digits.substring(mid + 1).toInt()
+        return if (a <= b) a to b else null
+    }
+
     private val confusables = mapOf(
         'O' to '0', 'o' to '0', 'D' to '0', 'Q' to '0', 'U' to '0',
         'I' to '1', 'l' to '1', '|' to '1', 'i' to '1', '!' to '1', ']' to '1', '[' to '1',

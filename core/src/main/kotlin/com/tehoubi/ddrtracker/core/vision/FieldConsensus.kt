@@ -69,17 +69,26 @@ class FieldConsensus(
             grade = field { it.grade },
             lamp = field { it.lamp },
             failed = frames.count { it.result.failed } * 2 > frames.size || latest.failed && frames.size == 1,
+            comboTotal = field { it.comboTotal },
+            labelsSeen = frames.flatMap { it.result.labelsSeen }.toSet() + stats.keys,
         )
     }
 
-    private val required: List<(ParsedResult) -> Field<Int>?> =
-        listOf<(ParsedResult) -> Field<Int>?>({ it.score }) + StatLabel.JUDGMENTS.map { label -> { r: ParsedResult -> r.stats[label] } }
+    private val score: (ParsedResult) -> Field<Int>? = { it.score }
+    private val judgments: List<(ParsedResult) -> Field<Int>?> = StatLabel.JUDGMENTS.map { label -> { r: ParsedResult -> r.stats[label] } }
+    private val totals: List<(ParsedResult) -> Field<Int>?> = listOf({ it.exScore }, { it.comboTotal })
 
     private fun isSettled(select: (ParsedResult) -> Field<Int>?): Boolean =
         vote(select)?.let { it.agreeing >= minVotes && it.share >= minShare } ?: false
 
-    /** Share of required fields that have settled, for a progress indicator. */
-    val progress: Float get() = required.count { isSettled(it) } / required.size.toFloat()
+    /** Share of the fields needed to lock that have settled, for a progress indicator. */
+    val progress: Float
+        get() {
+            val viaJudgments = (listOf(score) + judgments).count { isSettled(it) } / 7f
+            val viaTotals = (listOf(score) + totals).count { isSettled(it) } / 3f
+            return maxOf(viaJudgments, viaTotals)
+        }
 
-    val isLocked: Boolean get() = required.all { isSettled(it) }
+    val isLocked: Boolean
+        get() = isSettled(score) && (judgments.all { isSettled(it) } || totals.all { isSettled(it) })
 }

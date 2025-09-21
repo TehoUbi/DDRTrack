@@ -147,3 +147,16 @@ class ResultScreenParserTest {
         assertNull(r.score)
     }
 }
+
+class WideTableTest {
+    @Test
+    fun `values far from their labels with nothing else on the row`() {
+        val p = page {
+            listOf("MARVELOUS" to "452", "PERFECT" to "12", "GREAT" to "0", "GOOD" to "0", "O.K." to "34", "MISS" to "0").forEachIndexed { i, (l, v) ->
+                line(l, 420, 400 + i * 34, 420 + l.length * 18, 426 + i * 34)
+                line(v, 800, 400 + i * 34, 860, 426 + i * 34)
+            }
+        }
+        assertEquals(Judgments(452, 12, 0, 0, 34, 0), ResultScreenParser().parse(p).judgments())
+    }
+}

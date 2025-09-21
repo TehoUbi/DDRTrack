@@ -21,6 +21,8 @@ enum class StatLabel(vararg val spellings: String) {
     EX_SCORE("EX SCORE", "EXSCORE"),
     FAST("FAST"),
     SLOW("SLOW"),
+    /** WORLD's details tab shows the previous best under the score; read so it isn't mistaken for it. */
+    BEST_SCORE("BEST SCORE", "BESTSCORE"),
     SCORE("SCORE");
 
     val isJudgment: Boolean get() = this in JUDGMENTS
@@ -41,13 +43,28 @@ data class ParsedResult(
     val grade: Field<Grade>? = null,
     val lamp: Field<ClearLamp>? = null,
     val failed: Boolean = false,
+    /**
+     * The "/ 417" after MAX COMBO on WORLD: the chart's step count, which
+     * must equal Marvelous + Perfect + Great + Good + Miss.
+     */
+    val comboTotal: Field<Int>? = null,
+    /** Table labels that were recognised, whether or not their value was. */
+    val labelsSeen: Set<StatLabel> = stats.keys,
 ) {
     val exScore: Field<Int>? get() = stats[StatLabel.EX_SCORE]
     val maxCombo: Field<Int>? get() = stats[StatLabel.MAX_COMBO]
 
-    /** True once enough of the judgment table is visible to be a result screen. */
+    /**
+     * True once enough of the stats table is visible to be a result screen.
+     * Counts labels, not values: small digits are often unreadable while the
+     * labels next to them are fine, and missing values can be worked out.
+     */
     val looksLikeResultScreen: Boolean
-        get() = StatLabel.JUDGMENTS.count { it in stats } >= 4
+        get() {
+            val judgments = StatLabel.JUDGMENTS.count { it in labelsSeen || it in stats }
+            val totals = listOf(StatLabel.EX_SCORE, StatLabel.MAX_COMBO).count { it in labelsSeen || it in stats }
+            return judgments >= 4 || (judgments >= 2 && totals >= 1)
+        }
 
     val hasAllJudgments: Boolean get() = StatLabel.JUDGMENTS.all { it in stats }
 

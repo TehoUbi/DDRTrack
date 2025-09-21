@@ -58,3 +58,15 @@ class FieldConsensusTest {
         assertTrue(c.isLocked)
     }
 }
+
+class FieldConsensusRealScreenTest {
+    @Test
+    fun `locks on real frames whose small digits are unreadable`() {
+        val frame = ResultScreenParser().parse(com.tehoubi.ddrtracker.core.realscreens.RealScreens.page("world-1"))
+        val c = FieldConsensus(minVotes = 3)
+        repeat(3) { c.add(frame) }
+        // Great..Miss never read, but score, EX and the step total settled.
+        assertTrue(c.isLocked)
+        assertEquals(417, c.current().comboTotal?.value)
+    }
+}
