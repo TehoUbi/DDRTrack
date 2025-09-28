@@ -82,24 +82,34 @@ players' bests for head-to-heads.
    against the sharpest recent frame (a usable absolute threshold depends
    on the scene); the share of blown-out pixels for glare; mean luminance
    for exposure. These set hints and vote weights and never block a frame.
-2. **OCR.** ML Kit's bundled Latin model on the 720p analysis stream at
-   about 3 fps, then on the full-resolution still.
+2. **OCR.** ML Kit's bundled Latin model on the 1080p analysis stream at
+   about 3 fps. The still is read twice: once downscaled, to find the
+   stats panel, then the panel alone, cropped from the full-resolution
+   photo. Those digits are the smallest text on screen and the first to go
+   missing. The title band is read with the Japanese model when the Latin
+   read of it looks unreliable.
 3. **Parse** (`core/ocr/ResultScreenParser`). Works on geometry, not plain
-   text. Labels are fuzzy matched (with letter/digit look-alikes folded),
-   and each value is the number on the same row to the right of its label.
-   Separators split across elements are rejoined. Titles are matched
-   against a bundled catalog plus your own songs, including titles that
-   wrap onto two lines.
+   text. Boxes are deskewed by the median text angle. Labels are fuzzy
+   matched (with letter/digit look-alikes folded). The six judgment rows
+   are fitted as an evenly spaced column from whichever labels were
+   recognised, and values are taken between the labels and the FAST/SLOW
+   box, splitting stacked single digits. Also read: FAST/SLOW under their
+   labels, "MAX COMBO 140 / 417" (combo and step total) and BEST SCORE.
+   The title is the title-over-artist pair below the difficulty banner,
+   or a catalog match.
 4. **Vote** (`core/vision/FieldConsensus`). A confidence-weighted mode per
    field over the last eight frames. It locks when the score and all six
    judgments have three agreeing frames with a 60% majority.
 5. **Second pass.** If the still is inconsistent, it is OCR'd again in
    contrast-stretched grayscale (`OcrEnhance`) and the two readings are
    merged.
-6. **Cross-check and repair** (`core/ocr/ScanValidator`). EX must equal
-   3·Marvelous + 2·Perfect + Great + 3·O.K. The money score must follow
-   from the judgments for some number of dropped freezes (DDR's SN2
-   formula, in integer arithmetic). Scores end in 0.
+6. **Work out and cross-check** (`core/ocr/JudgmentSolver`,
+   `ScanValidator`). The step total equals Marvelous + Perfect + Great +
+   Good + Miss. EX = 3·Marvelous + 2·Perfect + Great + 3·O.K. The money
+   score follows exactly from the judgments (DDR's SN2 formula, in integer
+   arithmetic). The lamp rules out whole judgment kinds. Unreadable counts
+   are filled in when exactly one assignment fits, and a misread count is
+   corrected when exactly one fix explains the screen.
 
 ## Data model
 
@@ -204,8 +214,14 @@ about three months of plays for **Settings → Restore from a file**.
 
 - `core`: scoring formula and grade boundaries, the parser (misspelled
   labels, look-alike digits, split separators, lamp text, two-player
-  screens, wrapped titles), repair, frame quality, frame voting, sessions
-  and statistics, and submission rules.
+  screens, wrapped titles), repair and the judgment solver, frame quality,
+  frame voting, sessions and statistics, and submission rules.
+- `core` real screens (`core/src/test/resources/realscreens`): OCR of
+  photos of real WORLD result screens, made with `tools/ocr_fixture.py`.
+  ML Kit only runs on a phone, so these come from RapidOCR, which fails
+  the same ways (vanished digits, "SLOW" read as "MOTS", stacked digits
+  merged). Every screen has to come out exactly right, both single-pass
+  and with the panel re-read.
 - `app`: Room repository and session grouping, migrations, leaderboard
   upload against MockWebServer (including the edit-during-upload race),
   the HTTP client, review-form validation, filters, Firestore document
@@ -220,9 +236,11 @@ screenshots, uploads the debug APK and builds the server image.
 
 ## Limitations
 
-- OCR targets the A20 PLUS / A3 / WORLD result layout and Latin-script
-  titles. Japanese-only titles need to be typed (they still get a stable
-  chart key).
+- OCR is tuned on the WORLD result layout (the Details tab). Other
+  versions' layouts work only as far as their labels match.
+- Japanese titles depend on ML Kit's Japanese model reading the small
+  title text. When it can't, the title is flagged on the review screen
+  and needs typing.
 - The result screen doesn't show N.G. (dropped freezes). The validator
   infers them from the score, but a scan can over-report a full combo on
   charts with freezes when the score check is inconclusive.
