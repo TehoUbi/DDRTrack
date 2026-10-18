@@ -1,5 +1,8 @@
 # DDR Performance Tracker
 
+**Hosting notice:** I am no longer hosting servers for this app. Instructions
+for running your own server are below in [Leaderboard server (optional)](#leaderboard-server-optional).
+
 An Android app that reads Dance Dance Revolution result screens with the
 phone camera, logs every play, tracks progress across sessions, and
 compares scores with other players.
