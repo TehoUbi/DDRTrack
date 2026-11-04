@@ -63,6 +63,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             rename = viewModel::rename,
             signOut = viewModel::signOut,
             retryRejected = viewModel::retryRejected,
+            checkSongList = viewModel::checkSongList,
             setCloudSync = viewModel::setCloudSync,
             syncCloudNow = viewModel::syncCloudNow,
             exportCsv = viewModel::exportCsv,
@@ -84,6 +85,7 @@ class SettingsActions(
     val rename: () -> Unit = {},
     val signOut: () -> Unit = {},
     val retryRejected: () -> Unit = {},
+    val checkSongList: () -> Unit = {},
     val setCloudSync: (Boolean) -> Unit = {},
     val syncCloudNow: () -> Unit = {},
     val exportCsv: (Uri) -> Unit = {},
@@ -134,6 +136,17 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
                         }
                     }
                 },
+            )
+            ListItem(
+                headlineContent = { Text("Song list") },
+                supportingContent = {
+                    Text(
+                        "%,d songs to match titles against".format(state.songCount) +
+                            (state.songsCheckedAt?.let { " · checked ${syncedFormat.format(java.time.Instant.ofEpochMilli(it))}" } ?: "") +
+                            ". New songs are added weekly.",
+                    )
+                },
+                trailingContent = { TextButton(onClick = actions.checkSongList, enabled = !state.busy) { Text("Check now") } },
             )
             HorizontalDivider()
 

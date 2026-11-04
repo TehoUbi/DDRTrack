@@ -17,6 +17,9 @@ Photos are read with a new OCR engine that reads Japanese titles.
   from 93). A title is matched knowing which chart was read, and partly
   read Japanese titles still match. Typing a romanized name finds the
   Japanese title.
+- The song list refreshes itself weekly from 3icecream.com, so songs
+  released after this build are recognised. Settings shows the count and
+  has a "Check now" button.
 - A missing FAST or SLOW count is worked out from the other
   (FAST + SLOW = Perfect + Great + Good).
 - Fixes: a cabinet sticker saying "in the past" was read as the FAST

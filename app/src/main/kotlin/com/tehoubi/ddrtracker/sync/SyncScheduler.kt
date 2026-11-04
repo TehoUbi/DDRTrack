@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.tehoubi.ddrtracker.cloud.CloudSyncWorker
+import com.tehoubi.ddrtracker.data.songs.SongListWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -23,7 +24,8 @@ interface SyncTrigger {
 /**
  * Runs uploads through WorkManager: a one-off job (debounced a few seconds
  * so a burst of saves goes up as one batch) when plays change, plus a
- * periodic catch-up. Both need a network and back off exponentially.
+ * periodic catch-up. Both need a network and back off exponentially. Also
+ * the weekly song-list check.
  */
 @Singleton
 class SyncScheduler @Inject constructor(@ApplicationContext private val context: Context) : SyncTrigger {
@@ -58,6 +60,12 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(LEADERBOARD_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
         val cloud = PeriodicWorkRequestBuilder<CloudSyncWorker>(12, TimeUnit.HOURS).setConstraints(network).build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(CLOUD_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, cloud)
+        // New songs arrive every few weeks; the first run is right after install.
+        val songs = PeriodicWorkRequestBuilder<SongListWorker>(7, TimeUnit.DAYS)
+            .setConstraints(network)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(SONGS_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, songs)
     }
 
     companion object {
@@ -65,5 +73,6 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
         const val LEADERBOARD_PERIODIC = "leaderboard-sync-periodic"
         const val CLOUD_NOW = "cloud-sync"
         const val CLOUD_PERIODIC = "cloud-sync-periodic"
+        const val SONGS_PERIODIC = "song-list-periodic"
     }
 }

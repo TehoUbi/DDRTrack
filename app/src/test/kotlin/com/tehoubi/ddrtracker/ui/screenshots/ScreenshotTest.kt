@@ -201,6 +201,7 @@ class ScreenshotTest {
                     account = LeaderboardAccount("http://192.168.1.20:8080", "me", "Tehoubi", "t"),
                 ),
                 uploads = UploadCounts(pending = 2, submitted = 184, rejected = 1),
+                songCount = 1521,
                 serverUrlDraft = "http://192.168.1.20:8080",
                 nameDraft = "Tehoubi",
             ),

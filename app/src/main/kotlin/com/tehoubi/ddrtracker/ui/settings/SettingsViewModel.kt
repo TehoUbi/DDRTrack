@@ -11,7 +11,10 @@ import com.tehoubi.ddrtracker.data.backup.BackupManager
 import com.tehoubi.ddrtracker.data.UploadCounts
 import com.tehoubi.ddrtracker.data.settings.Settings
 import com.tehoubi.ddrtracker.data.settings.SettingsRepository
+import com.tehoubi.ddrtracker.data.songs.SongListRefresh
+import com.tehoubi.ddrtracker.data.songs.SongListStore
 import com.tehoubi.ddrtracker.data.userMessage
+import com.tehoubi.ddrtracker.scan.SongCatalogProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,6 +32,9 @@ data class SettingsUiState(
     val cloudStatus: CloudStatus = CloudStatus.Off,
     val cloudUserId: String? = null,
     val uploads: UploadCounts = UploadCounts(),
+    /** Songs the scanner can match titles against, and when the list was last checked for new ones. */
+    val songCount: Int = 0,
+    val songsCheckedAt: Long? = null,
     val serverUrlDraft: String = "",
     val nameDraft: String = "",
     val busy: Boolean = false,
@@ -41,16 +47,22 @@ class SettingsViewModel @Inject constructor(
     private val leaderboard: LeaderboardRepository,
     private val cloud: CloudSync,
     private val backups: BackupManager,
+    catalogs: SongCatalogProvider,
+    private val songList: SongListStore,
 ) : ViewModel() {
 
     private val drafts = MutableStateFlow(SettingsUiState())
 
+    private val songs = combine(catalogs.catalog, songList.list) { catalog, list -> catalog.size to list.checkedAt }
+
     val uiState: StateFlow<SettingsUiState> = combine(
-        repository.settings, leaderboard.uploadCounts, cloud.status, drafts,
-    ) { s, u, c, d ->
+        repository.settings, leaderboard.uploadCounts, cloud.status, drafts, songs,
+    ) { s, u, c, d, (songCount, checkedAt) ->
         d.copy(
             settings = s,
             uploads = u,
+            songCount = songCount,
+            songsCheckedAt = checkedAt,
             cloudAvailable = cloud.isAvailable,
             cloudStatus = if (!cloud.isAvailable) CloudStatus.Unavailable else c,
             cloudUserId = cloud.currentUserId(),
@@ -76,6 +88,14 @@ class SettingsViewModel @Inject constructor(
 
     fun syncCloudNow() {
         viewModelScope.launch { cloud.sync() }
+    }
+
+    fun checkSongList() = busy {
+        when (val r = songList.refresh()) {
+            is SongListRefresh.Updated -> "Song list updated: ${r.songs} songs"
+            SongListRefresh.Unchanged -> "Song list is up to date"
+            is SongListRefresh.Failed -> "Couldn't check the song list: ${r.message}"
+        }
     }
 
     fun exportCsv(uri: Uri) = busy {

@@ -106,10 +106,15 @@ players' bests for head-to-heads.
    recognised, and values are taken between the labels and the FAST/SLOW
    box, splitting stacked single digits. Also read: FAST/SLOW under their
    labels, "MAX COMBO 140 / 417" (combo and step total) and BEST SCORE.
-   The title is matched against the bundled list of about 1,500 DDR songs
-   (`songs.tsv`, from `tools/make_songlist.py`), preferring songs that have
-   the chart that was read at that level; otherwise it's the
-   title-over-artist pair below the difficulty banner.
+   The title is matched against the list of about 1,500 DDR songs,
+   preferring songs that have the chart that was read at that level;
+   otherwise it's the title-over-artist pair below the difficulty banner.
+   The list is bundled (`songs.tsv`, from `tools/make_songlist.py`) and
+   refreshed weekly on the phone from 3icecream.com's song data
+   (`core/songs/SongData`, `data/songs/SongListStore`), so new songs are
+   recognised without an app update. The check is a conditional request,
+   so an unchanged list costs one small 304 response, and a failed or
+   unrecognisable download keeps the last good copy.
 4. **Vote** (`core/vision/FieldConsensus`). A confidence-weighted mode per
    field over the last eight live frames. It locks when the score and all
    six judgments have three agreeing frames with a 60% majority. The photo
@@ -260,10 +265,13 @@ screenshots, uploads the debug APK and builds the server image.
 
 - OCR is tuned on the WORLD result layout (the Details tab). Other
   versions' layouts work only as far as their labels match.
-- Titles not in the bundled song list are taken as read and flagged for
-  checking. Songs newer than the list need `tools/make_songlist.py` run
-  again. On the review screen, Japanese titles can be found by their
-  romanized names ("buta thunder").
+- Titles not in the song list (a song released since the last weekly
+  check, say) are taken as read and flagged for checking; once saved, the
+  title is matched on later scans. Settings → Song list → Check now
+  fetches new songs at once. On the review screen, Japanese titles can be
+  found by their romanized names ("buta thunder").
+- The weekly song-list check is the app's only network request that isn't
+  something you set up (leaderboard, Firebase). It sends nothing about you.
 - The result screen doesn't show N.G. (dropped freezes). The validator
   infers them from the score, but a scan can over-report a full combo on
   charts with freezes when the score check is inconclusive.
