@@ -122,6 +122,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
+    // Song jackets, fetched on demand and cached rather than bundled.
+    implementation(libs.coil.compose)
 
     // CameraX
     implementation(libs.camerax.core)

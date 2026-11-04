@@ -1,32 +1,38 @@
 #!/usr/bin/env python3
-"""Generate the files in samples/.
+"""Generate the sample data in samples/.
 
-    pip install pillow
-    python3 tools/make_samples.py
+    python3 tools/make_samples.py            # sample-backup.json, demo-players.json
+    python3 tools/make_samples.py --screens  # also synthetic result screens (needs Pillow)
 
-- samples/result-*.png: synthetic result screens laid out like DDR A3 /
-  WORLD (labels left, values right, big score), for trying "From gallery"
-  on the scan screen without a cabinet. They are drawings, not game
-  captures.
-- samples/sample-backup.json: about three months of plausible plays for
-  Settings > Restore, so the history, progress and session views have
-  something in them.
+- samples/sample-backup.json: a year of plausible plays (to the day before
+  END below) for Settings > Restore from a file, so history, progress,
+  sessions and chart pages have something in them. Real charts at their
+  real levels, from the bundled song list, including Japanese titles.
+- samples/demo-players.json: fake rivals for the leaderboard server's
+  `--seed-demo`, with scores on many of the same charts, so the compare
+  and leaderboard screens have head-to-heads to show.
+- samples/result-*.png (--screens): synthetic result screens laid out like
+  DDR A3 / WORLD. Drawings, not game captures; the real photos in samples/
+  are better for testing the scanner.
 
 Everything is seeded, so re-running gives byte-identical output.
 """
+import hashlib
 import json
+import math
 import random
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
-
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "samples"
+SONGS = ROOT / "core/src/main/resources/com/tehoubi/ddrtracker/core/songs/songs.tsv"
 FONT_DIRS = [Path("/usr/share/fonts/truetype/dejavu"), Path("/Library/Fonts"), Path("C:/Windows/Fonts")]
 
 
-def font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
+def font(bold, size):
+    from PIL import ImageFont
     names = ["DejaVuSans-Bold.ttf", "Arial Bold.ttf", "arialbd.ttf"] if bold else ["DejaVuSans.ttf", "Arial.ttf", "arial.ttf"]
     for d in FONT_DIRS:
         for n in names:
@@ -92,6 +98,7 @@ def draw_table(d, x, y, j, fast, slow):
 
 
 def result_screen(path, title, artist, difficulty, level, j, fast, slow):
+    from PIL import Image, ImageDraw
     img = Image.new("RGB", (1280, 720), "#0B0820")
     d = ImageDraw.Draw(img)
     for i in range(720):  # dim vertical gradient like the cabinet background
@@ -117,6 +124,7 @@ def result_screen(path, title, artist, difficulty, level, j, fast, slow):
 
 
 def two_player_screen(path):
+    from PIL import Image, ImageDraw
     img = Image.new("RGB", (1280, 720), "#0B0820")
     d = ImageDraw.Draw(img)
     d.text((640, 40), "PARANOiA", fill="#FFFFFF", font=font(True, 44), anchor="ma")
@@ -135,73 +143,138 @@ def two_player_screen(path):
     img.save(path, optimize=True)
 
 
-# --- Sample backup ----------------------------------------------------------
+# --- Sample backup and demo players -----------------------------------------
 
-CHARTS = [
-    ("Butterfly", "EXPERT", 12), ("B4U", "EXPERT", 12), ("AM-3P", "EXPERT", 12), ("CANDY☆", "DIFFICULT", 11),
-    ("Xepher", "DIFFICULT", 13), ("DEAD END", "EXPERT", 13), ("SABER WING", "EXPERT", 13), ("PARANOiA", "EXPERT", 14),
-    ("TRIP MACHINE CLIMAX", "EXPERT", 14), ("Afronova", "EXPERT", 14), ("MAX 300", "EXPERT", 15),
-    ("Healing Vision ~Angelic mix~", "EXPERT", 15), ("PARANOiA Rebirth", "EXPERT", 15), ("Pluto Relinquish", "CHALLENGE", 16),
-    ("ENDYMION", "EXPERT", 17), ("Valkyrie dimension", "CHALLENGE", 17),
-]
+END = datetime(2026, 11, 4, tzinfo=timezone.utc)
+DIFFS = ["BEGINNER", "BASIC", "DIFFICULT", "EXPERT", "CHALLENGE"]
+# The songs in the sample photos, so scanning them lands on charts with history.
+PHOTO_CHARTS = [("Scarlet Moon", "EXPERT"), ("向日葵サンセット", "EXPERT"), ("ブタサンダー", "EXPERT"),
+                ("TRIP MACHINE EVOLUTION", "CHALLENGE"), ("アイスクリームマジック", "DIFFICULT")]
 
 
-def sample_backup(path):
-    rnd = random.Random(118)
-    start = datetime(2026, 2, 6, 19, 30, tzinfo=timezone.utc)
+def chart_pool(rnd):
+    """Single charts from Difficult to Challenge at levels 8-17, about 200 of them."""
+    charts = {}
+    for line in SONGS.read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        title, _, levels = line.split("\t")
+        levels = [int(n) for n in levels.split(",")] if levels else []
+        for d in (2, 3, 4):
+            if len(levels) > d and 8 <= levels[d] <= 17:
+                charts[(title, DIFFS[d])] = levels[d]
+    keys = sorted(charts)
+    rnd.shuffle(keys)
+    picked = set(keys[:200]) | {c for c in PHOTO_CHARTS if c in charts}
+    return [(t, d, charts[(t, d)]) for t, d in sorted(picked)]
+
+
+def chart_shape(title, difficulty, level):
+    """Steps and freeze arrows, fixed per chart so every player sees the same counts."""
+    h = int(hashlib.sha1(f"{title}/{difficulty}".encode()).hexdigest(), 16)
+    return 110 + level * 32 + h % 90, (h >> 8) % (6 + level * 2)
+
+
+def play(rnd, title, difficulty, level, skill, at, bias):
+    """One attempt. skill 0..1 maps to the level a player is comfortable at (8 to 18)."""
+    steps, freezes = chart_shape(title, difficulty, level)
+    gap = level - (8 + skill * 10)  # above zero: harder than they're used to
+    marv_share = min(0.93, max(0.1, 0.62 - 0.09 * gap + rnd.gauss(0, 0.07)))
+    bad_share = min(0.6, 0.09 * math.exp(0.45 * gap) + abs(rnd.gauss(0, 0.015)))
+    bad = max(1, min(int(steps * bad_share), int(steps * (1 - marv_share))))
+    clean = rnd.random() < 1 / (1 + math.exp(1.3 * (gap + 1.5)))  # no misses
+    miss = 0 if clean else max(1, int(bad * rnd.uniform(0.1, 0.3)))
+    good = 0 if clean and rnd.random() < 0.5 else int(bad * rnd.uniform(0.05, 0.15))
+    great = max(0, bad - miss - good)
+    marv = int(steps * marv_share)
+    perfect = steps - marv - great - good - miss
+    ng = 0 if clean else min(freezes, int(rnd.random() * (1 + max(0, gap)) * 2))
+    ok = freezes - ng
+    failed = gap > 1.0 and rnd.random() < 0.18 * gap
+    score = money_score(marv, perfect, great, good, ok, miss, ng)
+    if failed:
+        score = score * rnd.randint(40, 75) // 100 // 10 * 10
+    timed = perfect + great + good
+    fast = min(timed, max(0, int(timed * (bias + rnd.gauss(0, 0.06)))))
+    combo = steps if miss == 0 else max(1, int(steps * rnd.uniform(0.1, 0.8)))
+    return {
+        "songTitle": title, "style": "SINGLE", "difficulty": difficulty, "level": level,
+        "score": score, "exScore": ex_score(marv, perfect, great, good, ok, miss),
+        "marvelous": marv, "perfect": perfect, "great": great, "good": good, "ok": ok, "miss": miss,
+        "maxCombo": combo, "fast": fast, "slow": timed - fast, "failed": failed, "playedAt": at,
+    }
+
+
+def sample_backup(path, pool):
+    """You, over the last year: twice a week or so, improving from about 12s to 15s."""
+    rnd = random.Random(2026)
+    start = END - timedelta(days=365)
+    favourites = rnd.sample(pool, 40)
     plays = []
-    for week in range(15):
-        for visit in range(2 if week % 5 != 4 else 1):
-            t = start + timedelta(days=week * 7 + visit * 3, minutes=rnd.randint(0, 90))
-            for _ in range(rnd.randint(5, 11)):
-                skill = 0.5 + week * 0.03
-                # Harder charts get picked more as the player improves.
-                pool = [c for c in CHARTS if c[2] <= 13 + week // 3]
-                title, diff, level = rnd.choice(pool)
-                notes = 260 + level * 24
-                hard = max(0.05, 1.15 - skill + (level - 12) * 0.12)
-                miss = int(rnd.random() * 14 * hard)
-                good = int(rnd.random() * 7 * hard)
-                great = int(rnd.random() * 45 * hard)
-                perfect = int(notes * min(0.6, 0.1 + hard * 0.3) + rnd.randint(0, 12))
-                ok = 18 + level
-                marv = notes - miss - good - great - perfect
-                j = (marv, perfect, great, good, ok, miss)
-                failed = hard > 1.3 and rnd.random() < 0.25
-                score = money_score(*j)
-                if failed:
-                    score = score * 6 // 10 // 10 * 10
-                plays.append({
-                    "id": f"sample-{len(plays):04d}",
-                    "songTitle": title,
-                    "style": "SINGLE",
-                    "difficulty": diff,
-                    "level": level,
-                    "score": score,
-                    "exScore": ex_score(*j),
-                    "grade": "E" if failed else GRADE_NAMES[grade(score)],
-                    "lamp": "FAILED" if failed else lamp(*j),
-                    "marvelous": marv, "perfect": perfect, "great": great, "good": good, "ok": ok, "miss": miss,
-                    "maxCombo": notes - miss * rnd.randint(8, 40) if miss else notes,
-                    "fast": rnd.randint(0, 25), "slow": rnd.randint(0, 35),
-                    "failed": failed,
-                    "playedAt": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                    "source": rnd.choice(["CAMERA", "CAMERA", "CAMERA", "SCREENSHOT", "MANUAL"]),
-                    "note": "sample data",
-                })
-                t += timedelta(minutes=rnd.randint(3, 7))
-    for p in plays:
-        p["maxCombo"] = max(0, p["maxCombo"])
-    backup = {"format": "ddr-tracker-backup", "version": 1, "exportedAt": "2026-05-22T00:00:00Z", "plays": plays}
+    day = start
+    while day < END - timedelta(days=1):
+        day += timedelta(days=rnd.choice([1, 2, 2, 3, 3, 4, 6]))
+        if rnd.random() < 0.08:  # the odd week off
+            day += timedelta(days=rnd.randint(5, 12))
+        if day >= END:
+            break
+        progress = (day - start).days / 365
+        skill = 0.42 + 0.3 * progress + rnd.gauss(0, 0.02)
+        t = day.replace(hour=rnd.choice([1, 2, 3, 19, 20, 21, 22, 23]), minute=rnd.randint(0, 59))
+        for _ in range(rnd.randint(7, 16)):
+            reach = 8 + skill * 10 + 1.5
+            choices = [c for c in (favourites if rnd.random() < 0.45 else pool) if c[2] <= reach]
+            title, diff, level = rnd.choice(choices)
+            p = play(rnd, title, diff, level, skill, t, bias=0.42)
+            score = p["score"]
+            plays.append({
+                "id": f"sample-{len(plays):04d}", **{k: v for k, v in p.items() if k != "playedAt"},
+                "grade": "E" if p["failed"] else GRADE_NAMES[grade(score)],
+                "lamp": "FAILED" if p["failed"] else lamp(p["marvelous"], p["perfect"], p["great"], p["good"], p["ok"], p["miss"]),
+                "playedAt": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "source": rnd.choice(["CAMERA", "CAMERA", "CAMERA", "CAMERA", "SCREENSHOT", "MANUAL"]),
+                "note": "sample data",
+            })
+            t += timedelta(minutes=rnd.randint(3, 8))
+    backup = {"format": "ddr-tracker-backup", "version": 1, "exportedAt": END.strftime("%Y-%m-%dT%H:%M:%SZ"), "plays": plays}
     path.write_text(json.dumps(backup, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     return len(plays)
 
 
+DEMO_PLAYERS = [("demo-Kaito", 0.95), ("demo-Mika", 0.88), ("demo-Ren", 0.82), ("demo-Sora", 0.76),
+                ("demo-Hana", 0.70), ("demo-Yuki", 0.64), ("demo-Taro", 0.56), ("demo-Aoi", 0.48)]
+
+
+def demo_players(path, pool):
+    """Rivals above and below you, each with bests on many of the same charts."""
+    rnd = random.Random(7)
+    start = END - timedelta(days=365)
+    players = []
+    for name, skill in DEMO_PLAYERS:
+        reach = 8 + skill * 10 + 1
+        charts = [c for c in pool if c[2] <= reach and rnd.random() < 0.6]
+        plays = []
+        for title, diff, level in charts:
+            for _ in range(rnd.choice([1, 1, 2, 2, 3, 4])):
+                at = start + timedelta(minutes=rnd.randint(0, 365 * 24 * 60 - 60 * 24))
+                p = play(rnd, title, diff, level, skill + rnd.gauss(0, 0.02), at, bias=rnd.uniform(0.3, 0.6))
+                del p["fast"], p["slow"]
+                p["playedAt"] = int(at.timestamp() * 1000)
+                plays.append({"clientId": f"seed-{len(plays)}", **p})
+        players.append({"name": name, "plays": plays})
+    path.write_text(json.dumps({"players": players}, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+    return sum(len(p["plays"]) for p in players)
+
+
 if __name__ == "__main__":
     OUT.mkdir(exist_ok=True)
-    s1 = result_screen(OUT / "result-butterfly-pfc.png", "Butterfly", "SMiLE.dk", "EXPERT", 12, (452, 12, 0, 0, 34, 0), 5, 7)
-    s2 = result_screen(OUT / "result-paranoia-clear.png", "PARANOiA", "180", "EXPERT", 14, (318, 61, 14, 3, 30, 4), 11, 23)
-    s3 = result_screen(OUT / "result-max300-gfc.png", "MAX 300", "Ω", "EXPERT", 15, (402, 88, 21, 0, 25, 0), 30, 9)
-    two_player_screen(OUT / "result-two-player.png")
-    n = sample_backup(OUT / "sample-backup.json")
-    print(f"scores {s1:,} / {s2:,} / {s3:,}; backup with {n} plays")
+    pool = chart_pool(random.Random(118))
+    n = sample_backup(OUT / "sample-backup.json", pool)
+    d = demo_players(OUT / "demo-players.json", pool)
+    print(f"{len(pool)} charts; backup with {n} plays; {len(DEMO_PLAYERS)} demo players with {d} plays")
+    if "--screens" in sys.argv:
+        result_screen(OUT / "result-butterfly-pfc.png", "Butterfly", "SMiLE.dk", "EXPERT", 12, (452, 12, 0, 0, 34, 0), 5, 7)
+        result_screen(OUT / "result-paranoia-clear.png", "PARANOiA", "180", "EXPERT", 14, (318, 61, 14, 3, 30, 4), 11, 23)
+        result_screen(OUT / "result-max300-gfc.png", "MAX 300", "Ω", "EXPERT", 15, (402, 88, 21, 0, 25, 0), 30, 9)
+        two_player_screen(OUT / "result-two-player.png")
+        print("drew samples/result-*.png")

@@ -23,6 +23,7 @@ class SongDataTest {
         val sunset = songs.first()
         assertEquals(listOf("Himawari Sunset", "Touhouhimawari", "ひまわりサンセット"), sunset.aliases)
         assertEquals(13, sunset.level(PlayStyle.SINGLE, Difficulty.EXPERT))
+        assertEquals("https://3icecream.com/img/banners/I6Dd.jpg", SongData.jacketUrl(sunset.id!!))
         assertEquals(listOf("nine", "ナイン"), songs.last().aliases)
     }
 

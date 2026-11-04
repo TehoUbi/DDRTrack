@@ -15,11 +15,15 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * The file is JavaScript: `var ALL_SONG_DATA=[{...}, ...];` followed by
  * other declarations. Each song has its title as the game shows it,
- * optional romanized / alternate / searchable names ("/"-separated), and
- * nine chart levels in [Song.levels] order.
+ * optional romanized / alternate / searchable names ("/"-separated), nine
+ * chart levels in [Song.levels] order, and an id that names its jacket image.
  */
 object SongData {
     const val URL = "https://3icecream.com/js/songdata.js"
+
+    /** The song's jacket: 120 px square (about 7 KB), or 452 px when [large] (about 55 KB). */
+    fun jacketUrl(id: String, large: Boolean = false): String =
+        "https://3icecream.com/img/banners/${if (large) "f/" else ""}$id.jpg"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -39,7 +43,7 @@ object SongData {
             .filter { it.isNotEmpty() && it != title }
             .distinct()
         val levels = (this["ratings"] as? JsonArray)?.map { it.jsonPrimitive.intOrNull ?: 0 }.orEmpty()
-        return Song(title, aliases = aliases, levels = levels)
+        return Song(title, aliases = aliases, levels = levels, id = text("song_id")?.takeIf { it.isNotBlank() })
     }
 
     private fun clean(s: String) = s.split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" ")

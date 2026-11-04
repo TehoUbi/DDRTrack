@@ -18,6 +18,8 @@ data class Song(
      * doesn't exist. Empty when unknown.
      */
     val levels: List<Int> = emptyList(),
+    /** 3icecream.com's id for the song, which names its jacket image (see SongData.jacketUrl). */
+    val id: String? = null,
 ) {
     val key: String = SongKey.of(title)
 
@@ -58,7 +60,9 @@ class SongCatalog(songs: Collection<Song>) {
 
     operator fun plus(more: Collection<Song>) = SongCatalog(songs + more)
 
-    fun find(title: String): Song? = entries.firstOrNull { it.first.key == SongKey.of(title) }?.first
+    private val byKey: Map<String, Song> = entries.associate { it.first.key to it.first }
+
+    fun find(title: String): Song? = byKey[SongKey.of(title)]
 
     /**
      * The best match for any of [texts] (candidate title lines, most likely
@@ -135,6 +139,7 @@ class SongCatalog(songs: Collection<Song>) {
                         title = cols[0].trim(),
                         aliases = cols.getOrNull(1).orEmpty().split('|').map { it.trim() }.filter { it.isNotEmpty() },
                         levels = cols.getOrNull(2).orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() },
+                        id = cols.getOrNull(3)?.trim()?.takeIf { it.isNotEmpty() },
                     )
                 }.toList()
             }

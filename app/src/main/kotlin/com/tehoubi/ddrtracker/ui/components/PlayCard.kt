@@ -41,6 +41,7 @@ fun PlayCard(
     ) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SongJacket(play.songTitle)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = play.songTitle,

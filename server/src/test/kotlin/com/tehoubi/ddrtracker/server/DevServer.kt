@@ -1,17 +1,15 @@
 package com.tehoubi.ddrtracker.server
 
 import com.tehoubi.ddrtracker.core.api.ScoreSubmission
-import com.tehoubi.ddrtracker.core.model.Judgments
-import com.tehoubi.ddrtracker.core.scoring.DdrScoring
-import com.tehoubi.ddrtracker.core.songs.SongCatalog
+import com.tehoubi.ddrtracker.core.api.SubmissionRules
 import com.tehoubi.ddrtracker.server.db.Database
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.io.File
-import java.time.Instant
-import kotlin.random.Random
 
 /**
  * `./gradlew :server:runDev [--args="--seed-demo"]`
@@ -31,37 +29,31 @@ fun main(args: Array<String>) {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") { module(services) }.start(wait = true)
 }
 
+@Serializable
+private data class DemoPlayer(val name: String, val plays: List<ScoreSubmission>)
+
+@Serializable
+private data class DemoPlayers(val players: List<DemoPlayer>)
+
 /**
- * Demo rivals so the leaderboard and compare screens have something to
- * show. Every name is prefixed "demo-" so they are never mistaken for
- * real players.
+ * Demo rivals from samples/demo-players.json (tools/make_samples.py), so the
+ * leaderboard and compare screens have something to show. They have bests
+ * on many of the charts in samples/sample-backup.json, so restoring that
+ * backup in the app and signing up gives real head-to-heads. Every name is
+ * prefixed "demo-" so they are never mistaken for real players. Players
+ * already on the server are left alone.
  */
 private suspend fun seedDemo(services: Services) {
-    val rnd = Random(2026)
-    val songs = SongCatalog.bundled().songs.shuffled(rnd).take(25)
-    val skills = mapOf("demo-Kaito" to 0.97, "demo-Mika" to 0.93, "demo-Ren" to 0.88, "demo-Sora" to 0.82, "demo-Yuki" to 0.76)
-    for ((name, skill) in skills) {
-        val existing = services.players.search(name).firstOrNull { it.displayName == name }
-        if (existing != null) continue
-        val (player, _) = services.players.register(name)
-        val plays = songs.mapIndexed { i, song ->
-            val level = 9 + i % 8
-            val notes = 280 + level * 22
-            val difficulty = 1.0 - skill + (level - 9) * 0.015
-            val miss = (rnd.nextDouble() * 18 * difficulty).toInt()
-            val good = (rnd.nextDouble() * 8 * difficulty).toInt()
-            val great = (rnd.nextDouble() * 60 * difficulty).toInt()
-            val perfect = (notes * (0.08 + difficulty * 0.6)).toInt()
-            val j = Judgments(notes - miss - good - great - perfect, perfect, great, good, 20, miss)
-            ScoreSubmission(
-                clientId = "seed-$i", songTitle = song.title, style = "SINGLE", difficulty = "EXPERT", level = level,
-                score = DdrScoring.moneyScore(j), exScore = DdrScoring.exScore(j),
-                marvelous = j.marvelous, perfect = j.perfect, great = j.great, good = j.good, ok = j.ok, miss = j.miss,
-                maxCombo = notes - miss * 30, failed = false,
-                playedAt = Instant.now().minusSeconds(rnd.nextLong(86_400L * 60)).toEpochMilli(),
-            )
+    val file = File("../samples/demo-players.json")
+    require(file.exists()) { "${file.canonicalPath} is missing; run python3 tools/make_samples.py" }
+    val demo = Json { ignoreUnknownKeys = true }.decodeFromString(DemoPlayers.serializer(), file.readText())
+    for ((name, plays) in demo.players) {
+        if (services.players.search(name).any { it.displayName == name }) {
+            println("$name is already here")
+            continue
         }
-        val result = services.scores.submit(player.playerId, plays)
-        println("Seeded $name: ${result.accepted.size} plays (${result.rejected.size} rejected)")
+        val (player, _) = services.players.register(name)
+        val accepted = plays.chunked(SubmissionRules.MAX_BATCH).sumOf { services.scores.submit(player.playerId, it).accepted.size }
+        println("Seeded $name: $accepted of ${plays.size} plays")
     }
 }

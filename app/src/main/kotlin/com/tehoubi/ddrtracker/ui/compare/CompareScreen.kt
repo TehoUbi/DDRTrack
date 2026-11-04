@@ -57,6 +57,7 @@ import com.tehoubi.ddrtracker.core.model.PlayStyle
 import com.tehoubi.ddrtracker.ui.charts.LampGroupColors
 import com.tehoubi.ddrtracker.ui.components.EmptyState
 import com.tehoubi.ddrtracker.ui.components.SectionHeader
+import com.tehoubi.ddrtracker.ui.components.SongJacket
 import com.tehoubi.ddrtracker.ui.components.Tag
 import com.tehoubi.ddrtracker.ui.components.color
 import com.tehoubi.ddrtracker.ui.components.formatScore
@@ -188,7 +189,8 @@ private fun PopularRow(c: ChartSummary, onOpenChart: (String, String, String) ->
     ListItem(
         headlineContent = { Text(c.songTitle) },
         supportingContent = { Text("${c.players} players · top ${c.topScore.formatScore()}") },
-        leadingContent = { Tag("${d.shortCode(s)} ${c.level}", d.color()) },
+        leadingContent = { SongJacket(c.songTitle, size = 40.dp) },
+        trailingContent = { Tag("${d.shortCode(s)} ${c.level}", d.color()) },
         modifier = Modifier.clickable { onOpenChart(c.songKey, c.style, c.difficulty) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
     )
@@ -251,7 +253,8 @@ private fun ComparedRow(c: ComparedChart, rivalName: String, onClick: () -> Unit
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SongJacket(c.songTitle, size = 40.dp)
             Column(Modifier.weight(1f)) {
                 Text(c.songTitle, style = MaterialTheme.typography.titleSmall, maxLines = 1)
                 Tag("${d.shortCode(s)} ${c.level}", d.color())

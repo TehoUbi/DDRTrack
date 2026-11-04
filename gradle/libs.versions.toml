@@ -9,6 +9,7 @@ navigationCompose = "2.8.5"
 camerax = "1.4.1"
 mlkitTextRecognition = "16.0.1"
 onnxruntime = "1.31.0"
+coil = "2.7.0"
 firebaseBom = "33.7.0"
 googleServices = "4.4.2"
 room = "2.6.1"
@@ -60,6 +61,8 @@ mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition"
 # The same Java API on both: desktop JVM (tests) and Android.
 onnxruntime = { group = "com.microsoft.onnxruntime", name = "onnxruntime", version.ref = "onnxruntime" }
 onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
+
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }

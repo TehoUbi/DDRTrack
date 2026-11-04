@@ -46,7 +46,9 @@ import com.tehoubi.ddrtracker.ui.components.Tag
 import com.tehoubi.ddrtracker.ui.components.color
 import com.tehoubi.ddrtracker.ui.components.formatPercent
 import com.tehoubi.ddrtracker.ui.components.formatScore
+import com.tehoubi.ddrtracker.ui.components.SongJacket
 import com.tehoubi.ddrtracker.ui.components.judgmentColors
+import com.tehoubi.ddrtracker.ui.review.LOW_CONFIDENCE
 import com.tehoubi.ddrtracker.ui.theme.NeonGreen
 import com.tehoubi.ddrtracker.ui.theme.NeonYellow
 import com.tehoubi.ddrtracker.ui.theme.ScoreDigits
@@ -99,9 +101,12 @@ fun PlayDetailContent(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Column {
-                Text(play.songTitle, style = MaterialTheme.typography.headlineSmall)
-                play.artist?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                SongJacket(play.songTitle, size = 96.dp, large = true)
+                Column {
+                    Text(play.songTitle, style = MaterialTheme.typography.headlineSmall)
+                    play.artist?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Tag("${play.style.label} ${play.difficulty.label} ${play.level}", play.difficulty.color())
@@ -127,7 +132,8 @@ fun PlayDetailContent(
             JudgmentTable(play)
             Text(
                 "Played ${playedFormat.format(play.playedAt)} · ${play.source.name.lowercase().replaceFirstChar { it.uppercase() }}" +
-                    (play.scanConfidence?.let { " · scan confidence ${(it * 100).toInt()}%" } ?: ""),
+                    // Only worth mentioning when the scan was unsure of something.
+                    (play.scanConfidence?.takeIf { it < LOW_CONFIDENCE }?.let { " · low scan confidence (${(it * 100).toInt()}%), worth a check" } ?: ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

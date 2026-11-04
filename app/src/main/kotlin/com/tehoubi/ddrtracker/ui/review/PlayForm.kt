@@ -17,8 +17,11 @@ import com.tehoubi.ddrtracker.domain.model.PlaySource
 import java.time.Instant
 import java.util.UUID
 
-/** Fields whose OCR confidence is below this are highlighted for checking. */
-const val LOW_CONFIDENCE = 0.75f
+/** A scanned value read with less confidence than this is highlighted, and the play notes it. */
+const val LOW_CONFIDENCE = 0.5f
+
+/** When the scan's numbers don't add up, values under this are highlighted too. */
+const val DOUBTFUL_CONFIDENCE = 0.75f
 
 /**
  * Editable state of the review / manual-entry form. Numbers are kept as the
@@ -56,13 +59,15 @@ data class PlayForm(
     companion object {
         fun fromScan(scan: CheckedScan, source: PlaySource, capturedAt: Instant): PlayForm {
             val r = scan.result
-            val low = buildSet {
-                if ((r.title?.confidence ?: 0f) < LOW_CONFIDENCE) add("title")
-                if ((r.difficulty?.confidence ?: 0f) < LOW_CONFIDENCE) add("difficulty")
-                if ((r.level?.confidence ?: 0f) < LOW_CONFIDENCE) add("level")
-                if ((r.score?.confidence ?: 0f) < LOW_CONFIDENCE) add("score")
-                StatLabel.JUDGMENTS.forEach { if ((r.stats[it]?.confidence ?: 0f) < LOW_CONFIDENCE) add(it.name.lowercase()) }
-            }
+            // When the score, EX score and step count all agree with the
+            // judgments, the numbers are confirmed whatever OCR thought of
+            // them; only the title and chart can still be off, and only a
+            // particularly unsure read of those is worth a flag.
+            val numbers = listOf("score" to r.score) + StatLabel.JUDGMENTS.map { it.name.lowercase() to r.stats[it] }
+            val unconfirmed = listOf("title" to r.title, "difficulty" to r.difficulty, "level" to r.level) +
+                if (scan.isConsistent) emptyList() else numbers
+            val threshold = if (scan.isConsistent) LOW_CONFIDENCE else DOUBTFUL_CONFIDENCE
+            val low = unconfirmed.filter { (_, f) -> (f?.confidence ?: 0f) < threshold }.map { it.first }.toSet()
             return PlayForm(
                 source = source,
                 title = r.title?.value.orEmpty(),
@@ -78,9 +83,7 @@ data class PlayForm(
                 slow = r.stats[StatLabel.SLOW]?.value?.toString().orEmpty(),
                 failed = r.failed,
                 playedAt = capturedAt,
-                scanConfidence = listOfNotNull(r.title, r.score, r.difficulty, r.level)
-                    .plus(StatLabel.JUDGMENTS.mapNotNull { r.stats[it] })
-                    .minOfOrNull { it.confidence },
+                scanConfidence = unconfirmed.mapNotNull { it.second?.confidence }.minOrNull(),
                 lowConfidence = low + scan.inferred,
                 repaired = scan.repaired,
                 inferred = scan.inferred,

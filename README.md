@@ -47,6 +47,9 @@ single-digit misreads. You confirm, and the play is saved.
   plays and sessions and restore them on a new phone.
 - **Your data.** CSV export, plus JSON backup and restore through the
   system file picker.
+- **Song jackets.** Shown next to plays and charts. Each is downloaded from
+  3icecream.com the first time it appears (about 7 KB) and cached on the
+  phone (up to 20 MB), so the app ships none of them.
 
 ## How it fits together
 
@@ -199,6 +202,11 @@ No install needed (embedded PostgreSQL):
 ./gradlew :server:runDev --args="--seed-demo"   # demo-* players to compare against
 ```
 
+`--seed-demo` adds eight `demo-*` rivals from `samples/demo-players.json`,
+from about a 13 to an 18 player, with bests on many of the charts in
+`samples/sample-backup.json`. The data persists in `server/build/dev-postgres`;
+delete that folder to start over.
+
 With Docker:
 
 ```bash
@@ -229,10 +237,20 @@ Server configuration comes from the environment: `DATABASE_URL`,
 
 ## Trying it without a cabinet
 
-`samples/` has synthetic result screens (drawn in the A3/WORLD layout, not
-game captures) for **Scan → From gallery**. `sample-backup.json` holds
-about three months of plays for **Settings → Restore from a file**.
-`tools/make_samples.py` regenerates both.
+- **Scanning:** photos of real result screens (`samples/sample*.jpg`, when
+  present) work with **Scan → From gallery**. On an emulator, drag them
+  onto its window first.
+- **History and progress:** `samples/sample-backup.json` holds a year of
+  plays (about 1,200, real charts at their real levels) for
+  **Settings → Restore from a file**.
+- **Compare and leaderboards:** start the dev server with `--seed-demo`
+  (above), restore the backup, then **Settings → Leaderboard →
+  `http://10.0.2.2:8080` → Sign up**. The restored plays upload, and
+  **Compare** finds the `demo-*` rivals with around a hundred shared charts
+  each.
+
+`tools/make_samples.py` regenerates the backup and the demo players
+(`--screens` also draws synthetic result screens).
 
 ## Tests
 
@@ -270,8 +288,9 @@ screenshots, uploads the debug APK and builds the server image.
   title is matched on later scans. Settings → Song list → Check now
   fetches new songs at once. On the review screen, Japanese titles can be
   found by their romanized names ("buta thunder").
-- The weekly song-list check is the app's only network request that isn't
-  something you set up (leaderboard, Firebase). It sends nothing about you.
+- Apart from what you set up (leaderboard, Firebase), the app only goes
+  online to 3icecream.com: the weekly song-list check and song jackets. It
+  sends nothing about you, but the site sees which jackets you view.
 - The result screen doesn't show N.G. (dropped freezes). The validator
   infers them from the score, but a scan can over-report a full combo on
   charts with freezes when the score check is inconclusive.

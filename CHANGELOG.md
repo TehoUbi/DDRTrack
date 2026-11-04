@@ -20,6 +20,14 @@ Photos are read with a new OCR engine that reads Japanese titles.
 - The song list refreshes itself weekly from 3icecream.com, so songs
   released after this build are recognised. Settings shows the count and
   has a "Check now" button.
+- Song jackets next to plays, on the play screen and in compare lists:
+  downloaded on first view and cached (20 MB at most), none bundled.
+- Scan confidence only shows when it's particularly low (under 50%). When
+  the score, EX score and step count confirm the judgments, they aren't
+  highlighted, and a song in the list that has the chart at the level read
+  confirms the difficulty and level.
+- Sample data: a year of plays to restore, and eight demo rivals for the
+  dev leaderboard server with charts in common, so Compare can be tried.
 - A missing FAST or SLOW count is worked out from the other
   (FAST + SLOW = Perfect + Great + Good).
 - Fixes: a cabinet sticker saying "in the past" was read as the FAST

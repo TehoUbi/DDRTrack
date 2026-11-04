@@ -44,6 +44,8 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         val RIGHT_COLUMN = setOf(StatLabel.SCORE, StatLabel.BEST_SCORE, StatLabel.EX_SCORE, StatLabel.MAX_COMBO)
         /** Labels whose left edge bounds the judgment value column. */
         val TAB_WORDS = listOf("SIMPLERESULT", "DETAILS", "PLAYGRAPH")
+        /** Confidence of a difficulty and level the song list confirms. */
+        const val CONFIRMED = 0.95f
         val COLUMN_FENCES = setOf(StatLabel.FAST, StatLabel.SLOW, StatLabel.SCORE, StatLabel.BEST_SCORE, StatLabel.EX_SCORE, StatLabel.MAX_COMBO)
     }
 
@@ -203,13 +205,18 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         val lampAndGrade = findLampAndGrade(lines)
         val hint = chart.difficulty?.let { d -> chart.level?.let { l -> ChartHint(chart.style?.value, d.value, l.value) } }
         val title = findTitle(page.copy(lines = lines), hits, chart.bannerBottom, hint)
+        // A known song that really has this chart at this level confirms the banner read.
+        val song = title?.first?.value?.let { catalog?.find(it) }
+        val confirmed = song != null && hint != null &&
+            (hint.style?.let { listOf(it) } ?: PlayStyle.entries).any { song.level(it, hint.difficulty) == hint.level }
+        fun <T> Field<T>.sure() = if (confirmed) copy(confidence = maxOf(confidence, CONFIRMED)) else this
 
         return ParsedResult(
             title = title?.first,
             artist = title?.second,
             style = chart.style,
-            difficulty = chart.difficulty,
-            level = chart.level,
+            difficulty = chart.difficulty?.sure(),
+            level = chart.level?.sure(),
             score = score,
             stats = stats,
             grade = lampAndGrade.grade,
