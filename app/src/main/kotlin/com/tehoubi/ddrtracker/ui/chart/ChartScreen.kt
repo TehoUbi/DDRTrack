@@ -1,5 +1,6 @@
 package com.tehoubi.ddrtracker.ui.chart
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -53,15 +54,22 @@ private val dateFormat = DateTimeFormatter.ofPattern("MMM d").withZone(ZoneId.sy
 fun ChartScreen(
     onBack: () -> Unit,
     onPlayClick: (String) -> Unit,
+    onOpenPlayer: (playerId: String, name: String) -> Unit,
     viewModel: ChartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    ChartContent(state, onBack, onPlayClick, onRefresh = viewModel::refresh)
+    ChartContent(state, onBack, onPlayClick, onRefresh = viewModel::refresh, onOpenPlayer = onOpenPlayer)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChartContent(state: ChartUiState, onBack: () -> Unit, onPlayClick: (String) -> Unit, onRefresh: () -> Unit = {}) {
+fun ChartContent(
+    state: ChartUiState,
+    onBack: () -> Unit,
+    onPlayClick: (String) -> Unit,
+    onRefresh: () -> Unit = {},
+    onOpenPlayer: (String, String) -> Unit = { _, _ -> },
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -107,7 +115,7 @@ fun ChartContent(state: ChartUiState, onBack: () -> Unit, onPlayClick: (String) 
                     }
                 }
             }
-            item { LeaderboardCard(state.board) }
+            item { LeaderboardCard(state.board, onOpenPlayer) }
             if (progress != null) {
                 val bestIds = progress.bestSteps.map { it.id }.toSet()
                 item { SectionHeader("Every play") }
@@ -120,7 +128,7 @@ fun ChartContent(state: ChartUiState, onBack: () -> Unit, onPlayClick: (String) 
 }
 
 @Composable
-private fun LeaderboardCard(board: BoardState) {
+private fun LeaderboardCard(board: BoardState, onOpenPlayer: (String, String) -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Leaderboard", style = MaterialTheme.typography.titleMedium)
@@ -129,31 +137,31 @@ private fun LeaderboardCard(board: BoardState) {
                 BoardState.Loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
                 BoardState.Empty -> Muted("Nobody has uploaded this chart yet.")
                 is BoardState.Error -> Muted("Couldn't load the leaderboard: ${board.message}")
-                is BoardState.Loaded -> Board(board.board)
+                is BoardState.Loaded -> Board(board.board, onOpenPlayer)
             }
         }
     }
 }
 
 @Composable
-private fun Board(b: Leaderboard) {
+private fun Board(b: Leaderboard, onOpenPlayer: (String, String) -> Unit) {
     val you = b.you
     Muted(
         if (you != null) {
             "You're #${you.rank} of ${b.players}" + (b.youBeat?.let { " · ahead of ${it.formatPercent(0)} of players" } ?: "")
         } else "${b.players} player${if (b.players == 1) "" else "s"}"
     )
-    b.entries.forEach { e -> EntryRow(e, isYou = e.playerId == you?.playerId) }
+    b.entries.forEach { e -> EntryRow(e, isYou = e.playerId == you?.playerId, onOpenPlayer) }
     if (you != null && b.entries.none { it.playerId == you.playerId }) {
         HorizontalDivider()
-        EntryRow(you, isYou = true)
+        EntryRow(you, isYou = true, onOpenPlayer)
     }
 }
 
 @Composable
-private fun EntryRow(e: LeaderboardEntry, isYou: Boolean) {
+private fun EntryRow(e: LeaderboardEntry, isYou: Boolean, onOpenPlayer: (String, String) -> Unit) {
     val grade = runCatching { Grade.valueOf(e.grade) }.getOrNull()
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.clickable { onOpenPlayer(e.playerId, e.displayName) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("#${e.rank}", style = ScoreDigits, modifier = Modifier.width(44.dp))
         Text(
             if (isYou) "${e.displayName} (you)" else e.displayName,

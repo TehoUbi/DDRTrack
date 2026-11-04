@@ -14,6 +14,7 @@ import com.tehoubi.ddrtracker.data.remote.ApiException
 import com.tehoubi.ddrtracker.data.userMessage
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.repository.PlayRepository
+import com.tehoubi.ddrtracker.scan.SongCatalogProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +46,7 @@ class ChartViewModel @Inject constructor(
     savedState: SavedStateHandle,
     repository: PlayRepository,
     private val leaderboard: LeaderboardRepository,
+    catalogs: SongCatalogProvider,
     clock: Clock,
 ) : ViewModel() {
 
@@ -54,13 +56,18 @@ class ChartViewModel @Inject constructor(
 
     private val board = MutableStateFlow<BoardState>(BoardState.Loading)
 
-    val uiState: StateFlow<ChartUiState> = combine(repository.observeChart(songKey, style, difficulty), board) { plays, b ->
+    val uiState: StateFlow<ChartUiState> = combine(
+        repository.observeChart(songKey, style, difficulty), board, catalogs.catalog,
+    ) { plays, b, catalog ->
         val progress = plays.firstOrNull()?.let { ProgressStats(plays, clock.zone).chart(it.chartKey) }
         val remote = (b as? BoardState.Loaded)?.board
+        // Opened from a song search, a chart may have no plays here or on the server yet.
+        val song = catalog.songs.firstOrNull { it.key == songKey }
+        val level = remote?.level ?: song?.level(style, difficulty)
         ChartUiState(
             isLoading = false,
-            title = plays.lastOrNull()?.songTitle ?: remote?.songTitle.orEmpty(),
-            label = plays.lastOrNull()?.chart?.label ?: "${difficulty.shortCode(style)} ${remote?.level ?: ""}".trim(),
+            title = plays.lastOrNull()?.songTitle ?: remote?.songTitle ?: song?.title.orEmpty(),
+            label = plays.lastOrNull()?.chart?.label ?: "${difficulty.shortCode(style)} ${level ?: ""}".trim(),
             progress = progress,
             board = b,
         )

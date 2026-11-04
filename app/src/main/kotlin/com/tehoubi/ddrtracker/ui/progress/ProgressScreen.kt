@@ -18,6 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,7 +35,12 @@ import com.tehoubi.ddrtracker.ui.charts.StackSegment
 import com.tehoubi.ddrtracker.ui.charts.StackedRows
 import com.tehoubi.ddrtracker.ui.components.EmptyState
 import com.tehoubi.ddrtracker.ui.components.SectionHeader
+import com.tehoubi.ddrtracker.ui.components.Explanation
+import com.tehoubi.ddrtracker.ui.components.ExplanationDialog
+import com.tehoubi.ddrtracker.ui.components.Explanations
 import com.tehoubi.ddrtracker.ui.components.StatTile
+import com.tehoubi.ddrtracker.ui.components.TimingAdvice
+import com.tehoubi.ddrtracker.ui.components.TimingTile
 import com.tehoubi.ddrtracker.ui.components.formatPercent
 import com.tehoubi.ddrtracker.ui.components.formatScore
 import com.tehoubi.ddrtracker.ui.theme.ScoreDigits
@@ -52,6 +60,8 @@ private val sessionFormat = DateTimeFormatter.ofPattern("EEE MMM d").withZone(Zo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProgressContent(state: ProgressUiState, contentPadding: PaddingValues = PaddingValues()) {
+    var explaining by remember { mutableStateOf<Explanation?>(null) }
+    explaining?.let { ExplanationDialog(it) { explaining = null } }
     Scaffold(
         modifier = Modifier.padding(bottom = contentPadding.calculateBottomPadding()),
         topBar = { TopAppBar(title = { Text("Progress") }) },
@@ -66,11 +76,18 @@ fun ProgressContent(state: ProgressUiState, contentPadding: PaddingValues = Padd
         ) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatTile("Comfort level", state.comfortLevel?.toString() ?: "—", Modifier.weight(1f))
-                    StatTile("EX%, last 4 weeks", state.recentExRatio?.formatPercent() ?: "—", Modifier.weight(1.3f))
-                    StatTile("Early misses", state.fastShare?.formatPercent(0) ?: "—", Modifier.weight(1f))
+                    StatTile(
+                        "Comfort level", state.comfortLevel?.toString() ?: "—", Modifier.weight(1f),
+                        onClick = { explaining = Explanations.comfortLevel },
+                    )
+                    StatTile(
+                        "EX%, 4 weeks", state.recentExRatio?.formatPercent() ?: "—", Modifier.weight(1f),
+                        onClick = { explaining = Explanations.exPercent },
+                    )
+                    TimingTile(state.timing, Modifier.weight(1f), onExplain = { explaining = it })
                 }
             }
+            state.timing?.let { bias -> item { TimingAdvice(bias, onExplain = { explaining = it }) } }
             if (state.weeks.isNotEmpty()) {
                 item {
                     ChartCard("Plays per week", "Last ${state.weeks.size} weeks") {

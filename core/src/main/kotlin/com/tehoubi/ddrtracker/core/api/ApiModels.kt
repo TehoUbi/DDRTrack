@@ -63,6 +63,33 @@ data class ScoreSubmission(
 @Serializable
 data class SubmitScoresRequest(val scores: List<ScoreSubmission>)
 
+/**
+ * One of a player's plays as anyone can see it, for their profile page.
+ * Grade and lamp are the server's (recomputed on submission); FAST/SLOW
+ * aren't uploaded, so they aren't here.
+ */
+@Serializable
+data class PublicPlay(
+    val id: String,
+    val songTitle: String,
+    val style: String,
+    val difficulty: String,
+    val level: Int,
+    val score: Int,
+    val exScore: Int,
+    val grade: String,
+    val lamp: String,
+    val marvelous: Int,
+    val perfect: Int,
+    val great: Int,
+    val good: Int,
+    val ok: Int,
+    val miss: Int,
+    val maxCombo: Int,
+    val failed: Boolean,
+    val playedAt: Long,
+)
+
 @Serializable
 data class RejectedScore(val clientId: String, val reason: String)
 

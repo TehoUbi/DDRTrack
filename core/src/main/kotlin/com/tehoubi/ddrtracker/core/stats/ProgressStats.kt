@@ -34,6 +34,35 @@ data class LevelSummary(
     val grades: Map<Grade, Int>,
 )
 
+/**
+ * FAST and SLOW over a player's most recent plays: whether their timing
+ * errors lean early or late, which a timing offset can correct.
+ */
+data class TimingBias(val fast: Int, val slow: Int, val plays: Int) {
+    val total: Int get() = fast + slow
+    val fastShare: Double get() = if (total == 0) 0.5 else fast.toDouble() / total
+
+    enum class Lean { EARLY, EVEN, LATE }
+
+    /**
+     * EARLY or LATE when at least [MIN_JUDGMENTS] timing errors split 65/35
+     * or worse: steady enough that an offset change would help, rather than
+     * the noise of one bad song.
+     */
+    val lean: Lean
+        get() = when {
+            total < MIN_JUDGMENTS -> Lean.EVEN
+            fastShare >= LEAN_SHARE -> Lean.EARLY
+            fastShare <= 1 - LEAN_SHARE -> Lean.LATE
+            else -> Lean.EVEN
+        }
+
+    companion object {
+        const val MIN_JUDGMENTS = 40
+        const val LEAN_SHARE = 0.65
+    }
+}
+
 data class WeekPoint(val weekStart: LocalDate, val plays: Int, val averageExRatio: Double?)
 
 data class TimePoint(val at: Instant, val value: Double)
@@ -136,12 +165,11 @@ class ProgressStats<T : PlayLike>(plays: Collection<T>, private val zone: ZoneId
         return ids
     }
 
-    /** Share of early (FAST) timing errors among plays that recorded FAST/SLOW, or null. */
-    fun fastShare(): Double? {
-        val timed = plays.filter { it.fast != null && it.slow != null }
-        val fast = timed.sumOf { it.fast!! }
-        val total = fast + timed.sumOf { it.slow!! }
-        return if (total == 0) null else fast.toDouble() / total
+    /** FAST/SLOW over the last [recent] plays that recorded them, or null if none did. */
+    fun timingBias(recent: Int = 10): TimingBias? {
+        val timed = plays.filter { it.fast != null && it.slow != null }.takeLast(recent)
+        if (timed.isEmpty()) return null
+        return TimingBias(timed.sumOf { it.fast!! }, timed.sumOf { it.slow!! }, timed.size)
     }
 
     fun lampCounts(): Map<ClearLamp, Int> = personalBests.values.groupingBy { it.lamp }.eachCount()

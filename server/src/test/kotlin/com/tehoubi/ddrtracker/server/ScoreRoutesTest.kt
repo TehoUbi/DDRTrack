@@ -4,6 +4,7 @@ import com.tehoubi.ddrtracker.core.api.ChartSummary
 import com.tehoubi.ddrtracker.core.api.Comparison
 import com.tehoubi.ddrtracker.core.api.Leaderboard
 import com.tehoubi.ddrtracker.core.api.PlayerProfile
+import com.tehoubi.ddrtracker.core.api.PublicPlay
 import com.tehoubi.ddrtracker.core.api.RegisterResponse
 import com.tehoubi.ddrtracker.core.api.ScoreSubmission
 import com.tehoubi.ddrtracker.core.api.SubmitScoresRequest
@@ -138,6 +139,29 @@ class ScoreRoutesTest {
         assertTrue(cmp.charts.first().delta < 0)
 
         assertEquals(HttpStatusCode.BadRequest, client.get("/v1/players/me/compare/${b.playerId}").status)
+    }
+
+    @Test
+    fun `everyone is listed, most recently active first`() = serverTest { client ->
+        val a = client.register("Alpha")
+        val b = client.register("Bravo")
+        client.register("Charlie")
+        client.submit(a.token, play(playedAt = 1_777_000_000_000L))
+        client.submit(b.token, play(playedAt = 1_777_100_000_000L), play(title = "MAX 300", level = 15, playedAt = 1_777_000_000_000L))
+        val all = client.get("/v1/players").body<List<PlayerProfile>>()
+        assertEquals(listOf("Bravo", "Alpha", "Charlie"), all.map { it.displayName })
+        assertEquals(listOf(2, 1, 0), all.map { it.plays })
+    }
+
+    @Test
+    fun `a player's plays are public, newest first`() = serverTest { client ->
+        val a = client.register("Alpha")
+        client.submit(a.token, play(clientId = "old", playedAt = 1_777_000_000_000L), play(clientId = "new", misses = 3, playedAt = 1_777_000_600_000L))
+        val plays = client.get("/v1/players/${a.playerId}/plays").body<List<PublicPlay>>()
+        assertEquals(listOf("new", "old"), plays.map { it.id })
+        assertEquals(3, plays.first().miss)
+        assertEquals("CLEAR", plays.first().lamp)
+        assertEquals(HttpStatusCode.NotFound, client.get("/v1/players/00000000-0000-0000-0000-000000000000/plays").status)
     }
 
     @Test

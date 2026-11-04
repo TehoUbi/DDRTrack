@@ -8,6 +8,7 @@ import com.tehoubi.ddrtracker.core.api.ComparedChart
 import com.tehoubi.ddrtracker.core.api.Comparison
 import com.tehoubi.ddrtracker.core.api.Leaderboard
 import com.tehoubi.ddrtracker.core.api.LeaderboardEntry
+import com.tehoubi.ddrtracker.core.api.PlayerProfile
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
 import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
 import com.tehoubi.ddrtracker.core.ocr.ScanValidator
@@ -15,6 +16,7 @@ import com.tehoubi.ddrtracker.core.ocr.Box
 import com.tehoubi.ddrtracker.core.ocr.OcrLine
 import com.tehoubi.ddrtracker.core.ocr.OcrPage
 import com.tehoubi.ddrtracker.core.stats.ProgressStats
+import com.tehoubi.ddrtracker.core.stats.TimingBias
 import com.tehoubi.ddrtracker.core.stats.bestFirst
 import com.tehoubi.ddrtracker.data.UploadCounts
 import com.tehoubi.ddrtracker.data.settings.LeaderboardAccount
@@ -32,6 +34,8 @@ import com.tehoubi.ddrtracker.ui.home.HomeContent
 import com.tehoubi.ddrtracker.ui.home.HomeUiState
 import com.tehoubi.ddrtracker.ui.play.PlayDetailContent
 import com.tehoubi.ddrtracker.ui.play.PlayDetailUiState
+import com.tehoubi.ddrtracker.ui.player.PlayerContent
+import com.tehoubi.ddrtracker.ui.player.PlayerUiState
 import com.tehoubi.ddrtracker.ui.progress.LevelLamps
 import com.tehoubi.ddrtracker.ui.progress.ProgressContent
 import com.tehoubi.ddrtracker.ui.progress.ProgressUiState
@@ -74,7 +78,7 @@ class ScreenshotTest {
     private val stats = ProgressStats(plays, ZoneOffset.UTC)
 
     private fun shoot(name: String, content: @Composable () -> Unit) {
-        compose.setContent { DDRTrackerTheme(darkTheme = true) { content() } }
+        compose.setContent { DDRTrackerTheme { content() } }
         compose.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
 
@@ -89,6 +93,7 @@ class ScreenshotTest {
                 lastSessionPlays = plays.filter { it.sessionId == last.id },
                 recent = plays.take(12),
                 newBestIds = stats.newBestIds(),
+                timing = TimingBias(fast = 61, slow = 27, plays = 10),
             ),
             {}, {}, {}, {},
         )
@@ -120,7 +125,7 @@ class ScreenshotTest {
             ProgressUiState(
                 isLoading = false, playCount = plays.size, weeks = weeks, comfortHistory = stats.comfortLevelHistory(),
                 comfortLevel = stats.comfortLevel(), levels = stats.levels(), levelLamps = lamps,
-                recentExRatio = weeks.takeLast(4).mapNotNull { it.averageExRatio }.average(), fastShare = stats.fastShare(),
+                recentExRatio = weeks.takeLast(4).mapNotNull { it.averageExRatio }.average(), timing = stats.timingBias(),
                 sessions = SampleData.sessions.take(5),
             )
         )
@@ -176,6 +181,23 @@ class ScreenshotTest {
 
     @Test
     fun compare() = shoot("compare") {
+        CompareContent(
+            CompareUiState(
+                connected = true,
+                me = PlayerSummary("me", "Tehoubi"),
+                rivals = listOf(PlayerSummary("k", "Kaito")),
+                players = listOf(
+                    PlayerProfile("k", "Kaito", 0, 258, 190, 120, 160, 988_870, null),
+                    PlayerProfile("me", "Tehoubi", 0, 1182, 180, 72, 134, 970_115, null),
+                    PlayerProfile("m", "Mika", 0, 242, 160, 80, 120, 983_190, null),
+                ),
+            ),
+            {}, { _, _ -> }, {}, { _, _, _ -> },
+        )
+    }
+
+    @Test
+    fun player() = shoot("player") {
         val charts = listOf(
             ComparedChart("pluto-relinquish", "Pluto Relinquish", "SINGLE", "CHALLENGE", 16, 871_220, 902_440),
             ComparedChart("max-300", "MAX 300", "SINGLE", "EXPERT", 15, 948_310, 940_120),
@@ -183,12 +205,15 @@ class ScreenshotTest {
             ComparedChart("dead-end", "DEAD END", "SINGLE", "EXPERT", 13, 981_020, 955_870),
             ComparedChart("butterfly", "Butterfly", "SINGLE", "EXPERT", 12, 995_430, 989_960),
         )
-        CompareContent(
-            CompareUiState(
-                connected = true,
+        PlayerContent(
+            PlayerUiState(
+                name = "Kaito",
+                isLoading = false,
+                overview = stats.overview(LocalDate.parse("2026-05-17")),
+                recent = plays.take(4),
                 comparison = Comparison(PlayerSummary("me", "Tehoubi"), PlayerSummary("k", "Kaito"), 3, 1, 1, charts),
             ),
-            {}, {}, {}, {}, {}, {}, { _, _, _ -> },
+            {}, { _, _, _ -> },
         )
     }
 

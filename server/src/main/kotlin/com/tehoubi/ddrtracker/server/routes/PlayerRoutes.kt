@@ -41,6 +41,12 @@ fun Route.playerRoutes(players: PlayerRepository) {
             }
         }
 
+        // Everyone on the server, most recently active first.
+        get {
+            val limit = call.request.queryParameters["limit"]?.toIntOrNull()?.coerceIn(1, 500) ?: 200
+            call.respond(players.all(limit))
+        }
+
         get("/search") {
             val q = call.request.queryParameters["q"]?.trim().orEmpty()
             if (q.length < 2) throw BadRequestException("Search needs at least two characters")

@@ -39,10 +39,15 @@ single-digit misreads. You confirm, and the play is saved.
   than 45 minutes starts a new one).
 - **Progress.** Plays per week, weekly EX%, "comfort level" (the highest
   level where your bests average AA) month by month, best clear per level,
-  FAST/SLOW bias, and score by attempt for each chart.
-- **Compare.** Chart leaderboards with your rank and the share of players
-  you beat. Head-to-head against rivals on shared charts. Most-played
-  charts.
+  and score by attempt for each chart. Tap a number to see what it means.
+- **Timing.** FAST/SLOW over your last 10 plays. When it leans 65/35 or
+  more one way (over at least 40 timing errors), the home page says so and
+  suggests which way to move your timing offset.
+- **Compare.** Search players and songs (Japanese titles by romanized name
+  too), browse everyone on the server, and open any player's page: the same
+  numbers as your home page, their recent plays, and your head-to-head on
+  the charts you share. Chart leaderboards show your rank and the share of
+  players you beat.
 - **Cloud backup.** Firebase Auth (anonymous) and Firestore keep a copy of
   plays and sessions and restore them on a new phone.
 - **Your data.** CSV export, plus JSON backup and restore through the
@@ -199,10 +204,10 @@ and the app says the build has no Firebase project.
 No install needed (embedded PostgreSQL):
 
 ```bash
-./gradlew :server:runDev --args="--seed-demo"   # demo-* players to compare against
+./gradlew :server:runDev --args="--seed-demo"   # players to compare against
 ```
 
-`--seed-demo` adds eight `demo-*` rivals from `samples/demo-players.json`,
+`--seed-demo` adds eight rivals from `samples/demo-players.json`,
 from about a 13 to an 18 player, with bests on many of the charts in
 `samples/sample-backup.json`. The data persists in `server/build/dev-postgres`;
 delete that folder to start over.
@@ -223,8 +228,10 @@ yours has a certificate.
 | GET | `/health` | Database reachability |
 | POST | `/v1/players` | Register `{displayName}` → `{playerId, token}`. Rate limited. |
 | GET/PATCH | `/v1/players/me` | Profile with totals; rename |
+| GET | `/v1/players` | Everyone, most recently active first |
 | GET | `/v1/players/search?q=` | Find rivals |
 | GET | `/v1/players/{id}` | Public profile |
+| GET | `/v1/players/{id}/plays` | A player's plays, newest first, for their page |
 | POST | `/v1/scores` | Up to 500 plays. Validated with the same rules as the app, grade and lamp recomputed, a reason per rejected play |
 | DELETE | `/v1/scores/{clientId}` | Mirror a deletion |
 | GET | `/v1/charts/{songKey}/{style}/{difficulty}/leaderboard` | Ranked bests, plus your row and percentile when authenticated |
@@ -246,7 +253,7 @@ Server configuration comes from the environment: `DATABASE_URL`,
 - **Compare and leaderboards:** start the dev server with `--seed-demo`
   (above), restore the backup, then **Settings → Leaderboard →
   `http://10.0.2.2:8080` → Sign up**. The restored plays upload, and
-  **Compare** finds the `demo-*` rivals with around a hundred shared charts
+  **Compare** lists the rivals, with around a hundred shared charts
   each.
 
 `tools/make_samples.py` regenerates the backup and the demo players

@@ -1,9 +1,7 @@
 package com.tehoubi.ddrtracker.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 private val DarkColors = darkColorScheme(
@@ -25,24 +23,11 @@ private val DarkColors = darkColorScheme(
     outline = NightOutline,
 )
 
-private val LightColors = lightColorScheme(
-    primary = DeepCyan,
-    secondary = DeepMagenta,
-    background = Day,
-    surface = Day,
-    surfaceContainerLow = DaySurface,
-    surfaceContainer = DaySurface,
-    surfaceContainerHigh = DaySurfaceHigh,
-    surfaceContainerHighest = DaySurfaceHigh,
-)
-
+/** Always dark: the app is built around the cabinet's night palette. */
 @Composable
-fun DDRTrackerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit,
-) {
+fun DDRTrackerTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = DarkColors,
         typography = DdrTypography,
         content = content,
     )

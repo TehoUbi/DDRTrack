@@ -4,15 +4,25 @@ import com.tehoubi.ddrtracker.core.api.ChartSummary
 import com.tehoubi.ddrtracker.core.api.Comparison
 import com.tehoubi.ddrtracker.core.api.HealthResponse
 import com.tehoubi.ddrtracker.core.api.Leaderboard
+import com.tehoubi.ddrtracker.core.api.PlayerProfile
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
+import com.tehoubi.ddrtracker.core.api.PublicPlay
+import com.tehoubi.ddrtracker.core.model.ClearLamp
+import com.tehoubi.ddrtracker.core.model.Difficulty
+import com.tehoubi.ddrtracker.core.model.Grade
+import com.tehoubi.ddrtracker.core.model.Judgments
+import com.tehoubi.ddrtracker.core.model.PlayStyle
 import com.tehoubi.ddrtracker.data.local.DdrDatabase
 import com.tehoubi.ddrtracker.data.remote.ApiException
 import com.tehoubi.ddrtracker.data.remote.LeaderboardClient
 import com.tehoubi.ddrtracker.data.settings.LeaderboardAccount
 import com.tehoubi.ddrtracker.data.settings.SettingsRepository
+import com.tehoubi.ddrtracker.domain.model.Play
+import com.tehoubi.ddrtracker.domain.model.PlaySource
 import com.tehoubi.ddrtracker.sync.SyncTrigger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -72,6 +82,14 @@ class LeaderboardRepository @Inject constructor(
 
     suspend fun popular(): Result<List<ChartSummary>> = withAccount { a -> client.popular(a.serverUrl) }
 
+    /** Everyone on the server, most recently active first. */
+    suspend fun players(): Result<List<PlayerProfile>> = withAccount { a -> client.players(a.serverUrl) }
+
+    /** Another player's plays, newest first, in the app's own model so the same statistics apply. */
+    suspend fun playsOf(playerId: String): Result<List<Play>> = withAccount { a ->
+        client.plays(a.serverUrl, playerId).mapNotNull { runCatching { it.toPlay() }.getOrNull() }
+    }
+
     private suspend fun <T> withAccount(block: suspend (LeaderboardAccount) -> T): Result<T> {
         val account = settings.current().account ?: return Result.failure(NotConnectedException())
         return runCatching { block(account) }
@@ -86,3 +104,20 @@ fun Throwable.userMessage(): String = when (this) {
     is java.net.SocketTimeoutException -> "The server took too long to answer"
     else -> message ?: javaClass.simpleName
 }
+
+private fun PublicPlay.toPlay() = Play(
+    id = id,
+    songTitle = songTitle,
+    style = PlayStyle.valueOf(style),
+    difficulty = Difficulty.valueOf(difficulty),
+    level = level,
+    score = score,
+    exScore = exScore,
+    grade = Grade.valueOf(grade),
+    lamp = ClearLamp.valueOf(lamp),
+    judgments = Judgments(marvelous, perfect, great, good, ok, miss),
+    maxCombo = maxCombo,
+    failed = failed,
+    playedAt = Instant.ofEpochMilli(playedAt),
+    source = PlaySource.IMPORT,
+)

@@ -3,11 +3,14 @@ package com.tehoubi.ddrtracker.ui.compare
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tehoubi.ddrtracker.core.api.ChartSummary
-import com.tehoubi.ddrtracker.core.api.Comparison
+import com.tehoubi.ddrtracker.core.api.PlayerProfile
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
+import com.tehoubi.ddrtracker.core.songs.Song
+import com.tehoubi.ddrtracker.core.songs.SongCatalog
 import com.tehoubi.ddrtracker.data.LeaderboardRepository
 import com.tehoubi.ddrtracker.data.settings.SettingsRepository
 import com.tehoubi.ddrtracker.data.userMessage
+import com.tehoubi.ddrtracker.scan.SongCatalogProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,11 +30,14 @@ data class CompareUiState(
     val connected: Boolean = false,
     val me: PlayerSummary? = null,
     val query: String = "",
+    /** Players matching [query], from the server. */
     val results: List<PlayerSummary> = emptyList(),
+    /** Songs matching [query], by title or romanized name, from the song list. */
+    val songs: List<Song> = emptyList(),
     val rivals: List<PlayerSummary> = emptyList(),
+    /** Everyone on the server, most recently active first. */
+    val players: List<PlayerProfile> = emptyList(),
     val popular: List<ChartSummary> = emptyList(),
-    val comparison: Comparison? = null,
-    val loading: Boolean = false,
     val error: String? = null,
 )
 
@@ -40,9 +46,11 @@ data class CompareUiState(
 class CompareViewModel @Inject constructor(
     private val leaderboard: LeaderboardRepository,
     private val settings: SettingsRepository,
+    catalogs: SongCatalogProvider,
 ) : ViewModel() {
 
     private val local = MutableStateFlow(CompareUiState())
+    private var catalog = SongCatalog(emptyList())
 
     val uiState: StateFlow<CompareUiState> = combine(settings.settings, local) { s, l ->
         l.copy(
@@ -53,6 +61,7 @@ class CompareViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CompareUiState())
 
     init {
+        viewModelScope.launch { catalogs.catalog.collect { catalog = it } }
         viewModelScope.launch {
             local.map { it.query.trim() }.distinctUntilChanged().debounce(300).filter { it.length >= 2 }.collect { q ->
                 leaderboard.search(q).onSuccess { found ->
@@ -61,34 +70,24 @@ class CompareViewModel @Inject constructor(
                 }.onFailure { e -> local.update { it.copy(error = e.userMessage()) } }
             }
         }
-        refreshPopular()
+        refresh()
     }
 
-    fun refreshPopular() {
+    fun refresh() {
         viewModelScope.launch {
             leaderboard.popular().onSuccess { list -> local.update { it.copy(popular = list) } }
+            leaderboard.players().onSuccess { list -> local.update { it.copy(players = list) } }
         }
     }
 
-    fun onQueryChanged(q: String) = local.update { it.copy(query = q, results = if (q.length < 2) emptyList() else it.results) }
-
-    fun open(rival: PlayerSummary) {
-        viewModelScope.launch {
-            local.update { it.copy(loading = true, error = null) }
-            leaderboard.compare(rival.playerId)
-                .onSuccess { c -> local.update { it.copy(comparison = c, loading = false, query = "", results = emptyList()) } }
-                .onFailure { e -> local.update { it.copy(loading = false, error = e.userMessage()) } }
-        }
-    }
-
-    fun close() = local.update { it.copy(comparison = null) }
-
-    fun saveRival(rival: PlayerSummary) {
-        viewModelScope.launch { settings.addRival(rival) }
-    }
-
-    fun removeRival(rival: PlayerSummary) {
-        viewModelScope.launch { settings.removeRival(rival.playerId) }
+    fun onQueryChanged(q: String) = local.update {
+        val searching = q.trim().length >= 2
+        it.copy(
+            query = q,
+            results = if (searching) it.results else emptyList(),
+            // The song list is on the phone, so songs match as you type.
+            songs = if (searching) catalog.suggest(q.trim(), limit = 8) else emptyList(),
+        )
     }
 
     fun onErrorShown() = local.update { it.copy(error = null) }

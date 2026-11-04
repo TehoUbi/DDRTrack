@@ -72,6 +72,15 @@ class PlayerRepository(private val db: Database) {
     /** Profile with summary stats over the player's personal bests. */
     suspend fun profile(playerId: String): PlayerProfile? = db.transaction {
         val id = runCatching { UUID.fromString(playerId) }.getOrNull() ?: return@transaction null
+        profiles("WHERE p.id = ?", id).firstOrNull()
+    }
+
+    /** Everyone on the server, most recently active first, for browsing. */
+    suspend fun all(limit: Int): List<PlayerProfile> = db.transaction {
+        profiles("", limit = limit)
+    }
+
+    private fun java.sql.Connection.profiles(where: String, vararg args: Any, limit: Int = 1): List<PlayerProfile> =
         query(
             """
             SELECT p.id, p.display_name, p.created_at,
@@ -82,10 +91,12 @@ class PlayerRepository(private val db: Database) {
                    count(*) FILTER (WHERE pb.lamp IN ('FULL_COMBO', 'GREAT_FULL_COMBO', 'PERFECT_FULL_COMBO', 'MARVELOUS_FULL_COMBO')) AS fcs,
                    avg(pb.score)::int AS average_best
             FROM players p LEFT JOIN personal_bests pb ON pb.player_id = p.id
-            WHERE p.id = ?
+            $where
             GROUP BY p.id
+            ORDER BY last_played_at DESC NULLS LAST, lower(p.display_name)
+            LIMIT ?
             """.trimIndent(),
-            id,
+            *args, limit,
         ) {
             PlayerProfile(
                 playerId = it.getString("id"),
@@ -98,8 +109,7 @@ class PlayerRepository(private val db: Database) {
                 averageBest = (it.getObject("average_best") as Number?)?.toInt(),
                 lastPlayedAt = it.instant("last_played_at")?.toEpochMilli(),
             )
-        }.firstOrNull()
-    }
+        }
 
     private companion object {
         const val UNIQUE_VIOLATION = "23505"

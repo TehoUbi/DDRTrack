@@ -158,7 +158,7 @@ def chart_pool(rnd):
     for line in SONGS.read_text(encoding="utf-8").splitlines():
         if not line or line.startswith("#"):
             continue
-        title, _, levels = line.split("\t")
+        title, _, levels = line.split("\t")[:3]
         levels = [int(n) for n in levels.split(",")] if levels else []
         for d in (2, 3, 4):
             if len(levels) > d and 8 <= levels[d] <= 17:
@@ -225,7 +225,10 @@ def sample_backup(path, pool):
             reach = 8 + skill * 10 + 1.5
             choices = [c for c in (favourites if rnd.random() < 0.45 else pool) if c[2] <= reach]
             title, diff, level = rnd.choice(choices)
-            p = play(rnd, title, diff, level, skill, t, bias=0.42)
+            # Timing drifts early over the last few weeks (a new cabinet, say),
+            # enough for the app to suggest an offset change.
+            bias = 0.42 if (END - day).days > 21 else 0.72
+            p = play(rnd, title, diff, level, skill, t, bias=bias)
             score = p["score"]
             plays.append({
                 "id": f"sample-{len(plays):04d}", **{k: v for k, v in p.items() if k != "playedAt"},
@@ -233,7 +236,6 @@ def sample_backup(path, pool):
                 "lamp": "FAILED" if p["failed"] else lamp(p["marvelous"], p["perfect"], p["great"], p["good"], p["ok"], p["miss"]),
                 "playedAt": t.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "source": rnd.choice(["CAMERA", "CAMERA", "CAMERA", "CAMERA", "SCREENSHOT", "MANUAL"]),
-                "note": "sample data",
             })
             t += timedelta(minutes=rnd.randint(3, 8))
     backup = {"format": "ddr-tracker-backup", "version": 1, "exportedAt": END.strftime("%Y-%m-%dT%H:%M:%SZ"), "plays": plays}
@@ -241,8 +243,8 @@ def sample_backup(path, pool):
     return len(plays)
 
 
-DEMO_PLAYERS = [("demo-Kaito", 0.95), ("demo-Mika", 0.88), ("demo-Ren", 0.82), ("demo-Sora", 0.76),
-                ("demo-Hana", 0.70), ("demo-Yuki", 0.64), ("demo-Taro", 0.56), ("demo-Aoi", 0.48)]
+DEMO_PLAYERS = [("Kaito", 0.95), ("Mika", 0.88), ("Ren", 0.82), ("Sora", 0.76),
+                ("Hana", 0.70), ("Yuki", 0.64), ("Taro", 0.56), ("Aoi", 0.48)]
 
 
 def demo_players(path, pool):

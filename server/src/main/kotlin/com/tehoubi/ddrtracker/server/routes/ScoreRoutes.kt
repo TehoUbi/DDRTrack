@@ -67,6 +67,13 @@ fun Route.scoreRoutes(players: PlayerRepository, scores: ScoreRepository) {
         }
     }
 
+    // A player's plays, newest first: what their profile page is built from.
+    get("/v1/players/{id}/plays") {
+        val player = players.find(call.parameters["id"]!!) ?: throw NotFoundException("No such player")
+        val limit = call.request.queryParameters["limit"]?.toIntOrNull()?.coerceIn(1, 5000) ?: 2000
+        call.respond(scores.playsOf(player.playerId, limit))
+    }
+
     get("/v1/charts/popular") {
         val limit = call.request.queryParameters["limit"]?.toIntOrNull()?.coerceIn(1, 100) ?: 20
         call.respond(scores.popular(limit))

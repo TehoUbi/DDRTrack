@@ -89,8 +89,25 @@ class StatsTest {
     }
 
     @Test
-    fun `fast share`() {
-        assertEquals(15.0 / 50, ProgressStats(log, zone).fastShare())
+    fun `timing bias covers the recent plays that recorded it`() {
+        val bias = ProgressStats(log, zone).timingBias()!!
+        assertEquals(15, bias.fast)
+        assertEquals(35, bias.slow)
+        assertEquals(TimingBias.Lean.LATE, bias.lean)
+        assertNull(ProgressStats(log.map { it.copy(fast = null, slow = null) }, zone).timingBias())
+
+        // Only the last few count: an old early habit doesn't outweigh recent late plays.
+        val old = (1..20).map { TestPlay("e$it", "B4U", 12, 950_000, at("2026-01-01T18:00:00Z").plusSeconds(it * 300L), fast = 30, slow = 2) }
+        val recent = (1..10).map { TestPlay("l$it", "B4U", 12, 950_000, at("2026-03-01T18:00:00Z").plusSeconds(it * 300L), fast = 3, slow = 9) }
+        assertEquals(TimingBias.Lean.LATE, ProgressStats(old + recent, zone).timingBias()!!.lean)
+    }
+
+    @Test
+    fun `timing only leans with enough judgments and a clear split`() {
+        assertEquals(TimingBias.Lean.EVEN, TimingBias(fast = 20, slow = 5, plays = 3).lean) // too few to tell
+        assertEquals(TimingBias.Lean.EARLY, TimingBias(fast = 33, slow = 17, plays = 5).lean)
+        assertEquals(TimingBias.Lean.EVEN, TimingBias(fast = 30, slow = 20, plays = 5).lean)
+        assertEquals(TimingBias.Lean.LATE, TimingBias(fast = 10, slow = 30, plays = 5).lean)
     }
 
     @Test

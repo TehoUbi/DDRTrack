@@ -6,6 +6,7 @@ import com.tehoubi.ddrtracker.core.api.Comparison
 import com.tehoubi.ddrtracker.core.api.HealthResponse
 import com.tehoubi.ddrtracker.core.api.Leaderboard
 import com.tehoubi.ddrtracker.core.api.PlayerProfile
+import com.tehoubi.ddrtracker.core.api.PublicPlay
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
 import com.tehoubi.ddrtracker.core.api.RegisterRequest
 import com.tehoubi.ddrtracker.core.api.RegisterResponse
@@ -81,6 +82,12 @@ class LeaderboardClient @Inject constructor() {
         get(base, "v1/players/me/compare/${encode(rivalId)}", token)
 
     suspend fun popular(base: String, limit: Int = 20): List<ChartSummary> = get(base, "v1/charts/popular?limit=$limit", null)
+
+    suspend fun players(base: String): List<PlayerProfile> = get(base, "v1/players", null)
+
+    suspend fun profile(base: String, playerId: String): PlayerProfile = get(base, "v1/players/${encode(playerId)}", null)
+
+    suspend fun plays(base: String, playerId: String): List<PublicPlay> = get(base, "v1/players/${encode(playerId)}/plays", null)
 
     // --- plumbing -----------------------------------------------------------
 

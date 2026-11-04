@@ -20,6 +20,13 @@ Photos are read with a new OCR engine that reads Japanese titles.
 - The song list refreshes itself weekly from 3icecream.com, so songs
   released after this build are recognised. Settings shows the count and
   has a "Check now" button.
+- Always dark, whatever the phone's setting.
+- Player pages: anyone on the leaderboard server, with the same numbers as
+  your home page, their recent plays and your head-to-head. Compare's search
+  finds songs as well as players, and lists everyone on the server.
+- Tap Comfort level, EX% or Timing for an explanation.
+- "Early misses" is now Timing: FAST/SLOW over your last 10 plays, with a
+  highlighted suggestion to change your offset when it leans one way.
 - Song jackets next to plays, on the play screen and in compare lists:
   downloaded on first view and cached (20 MB at most), none bundled.
 - Scan confidence only shows when it's particularly low (under 50%). When

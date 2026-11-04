@@ -39,9 +39,9 @@ private data class DemoPlayers(val players: List<DemoPlayer>)
  * Demo rivals from samples/demo-players.json (tools/make_samples.py), so the
  * leaderboard and compare screens have something to show. They have bests
  * on many of the charts in samples/sample-backup.json, so restoring that
- * backup in the app and signing up gives real head-to-heads. Every name is
- * prefixed "demo-" so they are never mistaken for real players. Players
- * already on the server are left alone.
+ * backup in the app and signing up gives real head-to-heads. Players
+ * already on the server are left alone; ones seeded under the old "demo-"
+ * names are renamed, keeping everything else on the server as it is.
  */
 private suspend fun seedDemo(services: Services) {
     val file = File("../samples/demo-players.json")
@@ -50,6 +50,12 @@ private suspend fun seedDemo(services: Services) {
     for ((name, plays) in demo.players) {
         if (services.players.search(name).any { it.displayName == name }) {
             println("$name is already here")
+            continue
+        }
+        val old = services.players.search("demo-$name").firstOrNull { it.displayName == "demo-$name" }
+        if (old != null) {
+            services.players.rename(old.playerId, name)
+            println("Renamed demo-$name to $name")
             continue
         }
         val (player, _) = services.players.register(name)

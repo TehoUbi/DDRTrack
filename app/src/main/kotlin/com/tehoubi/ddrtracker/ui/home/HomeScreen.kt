@@ -2,11 +2,9 @@ package com.tehoubi.ddrtracker.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,35 +13,33 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tehoubi.ddrtracker.ui.components.EmptyState
+import com.tehoubi.ddrtracker.ui.components.Explanation
+import com.tehoubi.ddrtracker.ui.components.ExplanationDialog
+import com.tehoubi.ddrtracker.ui.components.OverviewTiles
 import com.tehoubi.ddrtracker.ui.components.PlayCard
 import com.tehoubi.ddrtracker.ui.components.SectionHeader
-import com.tehoubi.ddrtracker.ui.components.StatTile
-import com.tehoubi.ddrtracker.ui.components.formatPercent
-import com.tehoubi.ddrtracker.ui.components.formatScore
-import com.tehoubi.ddrtracker.ui.theme.NeonMagenta
-import com.tehoubi.ddrtracker.ui.theme.NeonYellow
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import com.tehoubi.ddrtracker.ui.components.SessionCard
+import com.tehoubi.ddrtracker.ui.components.TimingAdvice
 
 @Composable
 fun HomeScreen(
@@ -58,8 +54,6 @@ fun HomeScreen(
     HomeContent(uiState, onScanClick, onManualClick, onPlayClick, onSettingsClick, contentPadding)
 }
 
-private val sessionDate = DateTimeFormatter.ofPattern("EEEE, MMM d").withZone(ZoneId.systemDefault())
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeContent(
@@ -70,6 +64,8 @@ fun HomeContent(
     onSettingsClick: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
+    var explaining by remember { mutableStateOf<Explanation?>(null) }
+    explaining?.let { ExplanationDialog(it) { explaining = null } }
     Scaffold(
         modifier = Modifier.padding(bottom = contentPadding.calculateBottomPadding()),
         topBar = {
@@ -114,46 +110,16 @@ fun HomeContent(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 uiState.overview?.let { o ->
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatTile("Plays", o.totalPlays.toString(), Modifier.weight(1f))
-                            StatTile("Sessions", o.sessions.toString(), Modifier.weight(1f))
-                            StatTile("AAA", o.aaaCharts.toString(), Modifier.weight(1f), accent = NeonYellow)
-                        }
-                    }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatTile("Charts", o.chartsPlayed.toString(), Modifier.weight(1f))
-                            StatTile("Full combos", o.fullComboCharts.toString(), Modifier.weight(1f))
-                            StatTile(
-                                "Comfort level", o.comfortLevel?.toString() ?: "—", Modifier.weight(1f),
-                                accent = NeonMagenta,
-                            )
-                        }
-                    }
+                    item { OverviewTiles(o, onExplain = { explaining = it }) }
                 }
+                uiState.timing?.let { bias -> item { TimingAdvice(bias, onExplain = { explaining = it }) } }
                 uiState.lastSession?.let { s ->
                     item { SectionHeader("Last session") }
                     item {
-                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                            Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(sessionDate.format(s.startedAt), style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "${s.playCount} plays · ${java.time.Duration.between(s.startedAt, s.endedAt).toMinutes()} min · " +
-                                        "up to level ${s.highestLevel}",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    "Average ${s.averageScore.formatScore()} · best ${s.bestScore.formatScore()} · " +
-                                        "EX ${s.averageExRatio.formatPercent()}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                                val bests = uiState.lastSessionPlays.count { it.id in uiState.newBestIds }
-                                if (bests > 0) {
-                                    Text("$bests new personal best${if (bests > 1) "s" else ""}", color = NeonYellow)
-                                }
-                            }
-                        }
+                        SessionCard(
+                            s.startedAt, s.endedAt, s.playCount, s.highestLevel, s.averageScore, s.bestScore, s.averageExRatio,
+                            newBests = uiState.lastSessionPlays.count { it.id in uiState.newBestIds },
+                        )
                     }
                 }
                 item { SectionHeader("Recent plays") }

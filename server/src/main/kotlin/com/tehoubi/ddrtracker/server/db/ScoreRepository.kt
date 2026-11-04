@@ -4,6 +4,7 @@ import com.tehoubi.ddrtracker.core.api.ChartSummary
 import com.tehoubi.ddrtracker.core.api.ComparedChart
 import com.tehoubi.ddrtracker.core.api.Leaderboard
 import com.tehoubi.ddrtracker.core.api.LeaderboardEntry
+import com.tehoubi.ddrtracker.core.api.PublicPlay
 import com.tehoubi.ddrtracker.core.api.RejectedScore
 import com.tehoubi.ddrtracker.core.api.ScoreSubmission
 import com.tehoubi.ddrtracker.core.api.SubmissionRules
@@ -123,6 +124,42 @@ class ScoreRepository(private val db: Database, private val clock: Clock = Clock
             you = mine?.entry,
             youBeat = mine?.beat,
         )
+    }
+
+    /** A player's plays, newest first, for their public profile. */
+    suspend fun playsOf(playerId: String, limit: Int): List<PublicPlay> = db.transaction {
+        query(
+            """
+            SELECT s.client_id, c.song_title, c.style, c.difficulty, c.level, s.score, s.ex_score, s.grade, s.lamp,
+                   s.marvelous, s.perfect, s.great, s.good, s.ok, s.miss, s.max_combo, s.failed, s.played_at
+            FROM scores s JOIN charts c ON c.id = s.chart_id
+            WHERE s.player_id = ?
+            ORDER BY s.played_at DESC
+            LIMIT ?
+            """.trimIndent(),
+            UUID.fromString(playerId), limit,
+        ) {
+            PublicPlay(
+                id = it.getString("client_id"),
+                songTitle = it.getString("song_title"),
+                style = it.getString("style"),
+                difficulty = it.getString("difficulty"),
+                level = it.getInt("level"),
+                score = it.getInt("score"),
+                exScore = it.getInt("ex_score"),
+                grade = it.getString("grade"),
+                lamp = it.getString("lamp"),
+                marvelous = it.getInt("marvelous"),
+                perfect = it.getInt("perfect"),
+                great = it.getInt("great"),
+                good = it.getInt("good"),
+                ok = it.getInt("ok"),
+                miss = it.getInt("miss"),
+                maxCombo = it.getInt("max_combo"),
+                failed = it.getBoolean("failed"),
+                playedAt = it.instant("played_at")!!.toEpochMilli(),
+            )
+        }
     }
 
     /** Charts both players have scores on, with each one's best. */

@@ -24,16 +24,29 @@ import androidx.compose.ui.unit.dp
 import com.tehoubi.ddrtracker.core.model.Judgments
 import com.tehoubi.ddrtracker.ui.theme.ScoreDigits
 
-/** A labelled number on the dashboard. */
+/** A labelled number on the dashboard; with [onClick], tapping it explains the number (marked ⓘ). */
 @Composable
-fun StatTile(label: String, value: String, modifier: Modifier = Modifier, accent: Color = MaterialTheme.colorScheme.primary) {
-    Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+fun StatTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    accent: Color = MaterialTheme.colorScheme.primary,
+    onClick: (() -> Unit)? = null,
+) {
+    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    val content: @Composable () -> Unit = {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             // A standalone figure reads better with proportional digits.
             Text(value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = accent)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (onClick != null) "$label ⓘ" else label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
+    if (onClick != null) Card(onClick = onClick, modifier = modifier, colors = colors) { content() }
+    else Card(modifier, colors = colors) { content() }
 }
 
 @Composable

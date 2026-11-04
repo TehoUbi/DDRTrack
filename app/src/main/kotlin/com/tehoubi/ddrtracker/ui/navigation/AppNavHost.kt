@@ -1,5 +1,6 @@
 package com.tehoubi.ddrtracker.ui.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -27,6 +28,7 @@ import com.tehoubi.ddrtracker.ui.compare.CompareScreen
 import com.tehoubi.ddrtracker.ui.history.HistoryScreen
 import com.tehoubi.ddrtracker.ui.home.HomeScreen
 import com.tehoubi.ddrtracker.ui.play.PlayDetailScreen
+import com.tehoubi.ddrtracker.ui.player.PlayerScreen
 import com.tehoubi.ddrtracker.ui.progress.ProgressScreen
 import com.tehoubi.ddrtracker.ui.review.ReviewMode
 import com.tehoubi.ddrtracker.ui.review.ReviewScreen
@@ -43,12 +45,14 @@ object Routes {
     const val REVIEW = "review/{mode}?playId={playId}"
     const val PLAY = "play/{playId}"
     const val CHART = "chart/{songKey}/{style}/{difficulty}"
+    const val PLAYER = "player/{playerId}?name={name}"
 
     fun review(mode: ReviewMode, playId: String? = null) =
         "review/${mode.name}" + (playId?.let { "?playId=$it" } ?: "")
 
     fun play(id: String) = "play/$id"
     fun chart(songKey: String, style: String, difficulty: String) = "chart/$songKey/$style/$difficulty"
+    fun player(id: String, name: String) = "player/$id?name=${Uri.encode(name)}"
 }
 
 private data class Tab(val route: String, val label: String, val icon: ImageVector)
@@ -108,6 +112,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
             composable(Routes.COMPARE) {
                 CompareScreen(
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    onOpenPlayer = { id, name -> navController.navigate(Routes.player(id, name)) },
                     onOpenChart = { k, st, d -> navController.navigate(Routes.chart(k, st, d)) },
                     contentPadding = inner,
                 )
@@ -149,6 +154,19 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
                 ChartScreen(
                     onBack = { navController.popBackStack() },
                     onPlayClick = { navController.navigate(Routes.play(it)) },
+                    onOpenPlayer = { id, name -> navController.navigate(Routes.player(id, name)) },
+                )
+            }
+            composable(
+                Routes.PLAYER,
+                arguments = listOf(
+                    navArgument("playerId") { type = NavType.StringType },
+                    navArgument("name") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) {
+                PlayerScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenChart = { k, st, d -> navController.navigate(Routes.chart(k, st, d)) },
                 )
             }
             composable(Routes.SETTINGS) {

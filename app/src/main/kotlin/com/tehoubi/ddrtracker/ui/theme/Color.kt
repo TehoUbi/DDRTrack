@@ -13,8 +13,5 @@ val NightSurface = Color(0xFF1A1630)
 val NightSurfaceHigh = Color(0xFF26203F)
 val NightOutline = Color(0xFF4A4270)
 
+/** Text on the night background. */
 val Day = Color(0xFFF7F5FF)
-val DaySurface = Color(0xFFFFFFFF)
-val DaySurfaceHigh = Color(0xFFECE8FA)
-val DeepCyan = Color(0xFF006A80)
-val DeepMagenta = Color(0xFFB0186A)

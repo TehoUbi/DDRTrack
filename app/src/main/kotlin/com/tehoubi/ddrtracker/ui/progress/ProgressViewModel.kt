@@ -6,6 +6,7 @@ import com.tehoubi.ddrtracker.core.model.ClearLamp
 import com.tehoubi.ddrtracker.core.stats.LevelSummary
 import com.tehoubi.ddrtracker.core.stats.ProgressStats
 import com.tehoubi.ddrtracker.core.stats.TimePoint
+import com.tehoubi.ddrtracker.core.stats.TimingBias
 import com.tehoubi.ddrtracker.core.stats.WeekPoint
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.model.PlaySession
@@ -32,7 +33,7 @@ data class ProgressUiState(
     val levels: List<LevelSummary> = emptyList(),
     val levelLamps: List<LevelLamps> = emptyList(),
     val recentExRatio: Double? = null,
-    val fastShare: Double? = null,
+    val timing: TimingBias? = null,
     val sessions: List<PlaySession> = emptyList(),
 )
 
@@ -70,7 +71,7 @@ class ProgressViewModel @Inject constructor(
             levels = stats.levels(),
             levelLamps = lamps,
             recentExRatio = weeks.takeLast(4).mapNotNull { it.averageExRatio }.takeIf { it.isNotEmpty() }?.average(),
-            fastShare = stats.fastShare(),
+            timing = stats.timingBias(),
             sessions = sessions.take(8),
         )
     }

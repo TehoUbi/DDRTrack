@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tehoubi.ddrtracker.core.stats.Overview
 import com.tehoubi.ddrtracker.core.stats.ProgressStats
+import com.tehoubi.ddrtracker.core.stats.TimingBias
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.model.PlaySession
 import com.tehoubi.ddrtracker.domain.repository.PlayRepository
@@ -26,6 +27,7 @@ data class HomeUiState(
     val lastSessionPlays: List<Play> = emptyList(),
     val recent: List<Play> = emptyList(),
     val newBestIds: Set<String> = emptySet(),
+    val timing: TimingBias? = null,
     val error: String? = null,
 )
 
@@ -48,6 +50,7 @@ class HomeViewModel @Inject constructor(
             lastSessionPlays = last?.let { s -> plays.filter { it.sessionId == s.id } }.orEmpty(),
             recent = plays.take(12),
             newBestIds = stats.newBestIds(),
+            timing = stats.timingBias(),
         )
     }
         .flowOn(Dispatchers.Default)
