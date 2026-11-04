@@ -57,4 +57,7 @@ tasks.register<JavaExec>("runDev") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("com.tehoubi.ddrtracker.server.DevServerKt")
     standardInput = System.`in`
+    // Java otherwise listens on an IPv6 socket, which WSL forwards to Windows
+    // only as [::1]; the Android emulator's 10.0.2.2 reaches 127.0.0.1.
+    jvmArgs("-Djava.net.preferIPv4Stack=true")
 }
