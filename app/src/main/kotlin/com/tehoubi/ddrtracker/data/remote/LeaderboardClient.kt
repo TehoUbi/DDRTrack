@@ -66,13 +66,11 @@ class LeaderboardClient @Inject constructor() {
 
     /** True if removed, false if the server never had it. */
     suspend fun deleteScore(base: String, token: String, clientId: String): Boolean {
-        val response = execute(request(base, "v1/scores/${encode(clientId)}", token).delete().build())
-        response.use {
-            return when (it.code) {
-                204 -> true
-                404 -> false
-                else -> throw error(it.code, it.body?.string())
-            }
+        val (code, body) = fetch(request(base, "v1/scores/${encode(clientId)}", token).delete().build())
+        return when (code) {
+            204 -> true
+            404 -> false
+            else -> throw error(code, body)
         }
     }
 
@@ -102,14 +100,19 @@ class LeaderboardClient @Inject constructor() {
     }
 
     private suspend fun <T> call(request: Request, deserializer: KSerializer<T>): T {
-        execute(request).use { response ->
-            val body = response.body?.string().orEmpty()
-            if (!response.isSuccessful) throw error(response.code, body)
-            return json.decodeFromString(deserializer, body)
-        }
+        val (code, body) = fetch(request)
+        if (code !in 200..299) throw error(code, body)
+        return json.decodeFromString(deserializer, body)
     }
 
-    private suspend fun execute(request: Request) = withContext(Dispatchers.IO) { http.newCall(request).execute() }
+    /**
+     * Status and whole body, both read on the IO dispatcher: a large body
+     * (a comparison over hundreds of charts) is still arriving when the
+     * headers are, and reading it on the main thread is refused.
+     */
+    private suspend fun fetch(request: Request): Pair<Int, String> = withContext(Dispatchers.IO) {
+        http.newCall(request).execute().use { it.code to it.body?.string().orEmpty() }
+    }
 
     private fun error(code: Int, body: String?): ApiException {
         val message = body?.let { runCatching { json.decodeFromString(ApiError.serializer(), it).error }.getOrNull() }
