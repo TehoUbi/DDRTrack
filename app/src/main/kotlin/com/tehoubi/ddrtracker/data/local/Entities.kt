@@ -46,7 +46,7 @@ data class PlayEntity(
     /** Where this play stands with the leaderboard; see [LeaderboardStatus]. */
     @ColumnInfo(name = "leaderboard_status", defaultValue = "PENDING") val leaderboardStatus: String = LeaderboardStatus.PENDING,
     @ColumnInfo(name = "leaderboard_error") val leaderboardError: String? = null,
-    /** Changed since the last Firestore push. */
+    /** Changed since the last backup to the leaderboard account. */
     @ColumnInfo(name = "cloud_dirty", defaultValue = "1") val cloudDirty: Boolean = true,
 )
 

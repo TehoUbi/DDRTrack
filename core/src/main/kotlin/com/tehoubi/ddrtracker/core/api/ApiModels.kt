@@ -14,8 +14,68 @@ data class ApiError(val error: String)
 @Serializable
 data class RegisterRequest(val displayName: String)
 
+/**
+ * A new or recovered account. [recoveryCode] is only present when one was
+ * just made (at sign-up): it's shown to the player once and can't be read
+ * back, only replaced.
+ */
 @Serializable
-data class RegisterResponse(val playerId: String, val displayName: String, val token: String)
+data class RegisterResponse(val playerId: String, val displayName: String, val token: String, val recoveryCode: String? = null)
+
+@Serializable
+data class RecoverRequest(val recoveryCode: String)
+
+@Serializable
+data class RecoveryCodeResponse(val recoveryCode: String)
+
+/**
+ * One play in a player's private log, everything the app stores about it.
+ * Deleted plays travel as tombstones ([deleted]) so the deletion reaches the
+ * player's other phones; [updatedAt] decides which copy of an entry wins.
+ */
+@Serializable
+data class LogEntry(
+    val id: String,
+    val songTitle: String,
+    val artist: String? = null,
+    val style: String,
+    val difficulty: String,
+    val level: Int,
+    val score: Int,
+    val exScore: Int,
+    val grade: String,
+    val lamp: String,
+    val marvelous: Int,
+    val perfect: Int,
+    val great: Int,
+    val good: Int,
+    val ok: Int,
+    val miss: Int,
+    val maxCombo: Int,
+    val fast: Int? = null,
+    val slow: Int? = null,
+    val failed: Boolean,
+    val playedAt: Long,
+    val source: String,
+    val scanConfidence: Float? = null,
+    val note: String? = null,
+    val updatedAt: Long,
+    val deleted: Boolean = false,
+)
+
+@Serializable
+data class LogUpload(val entries: List<LogEntry>)
+
+/** How many entries were stored; older copies than the server's are skipped, not errors. */
+@Serializable
+data class LogUploadResponse(val stored: Int)
+
+/**
+ * Log entries changed after a revision, oldest change first. Pass [revision]
+ * back as `after` for the next page; [more] says whether there is one.
+ */
+@Serializable
+data class LogPage(val entries: List<LogEntry>, val revision: Long, val more: Boolean)
 
 @Serializable
 data class UpdatePlayerRequest(val displayName: String)

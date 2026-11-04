@@ -87,15 +87,7 @@ fun CompareContent(
         topBar = { TopAppBar(title = { Text("Compare") }) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        if (!state.connected) {
-            EmptyState(
-                "Compare with other players",
-                "Sign up on a leaderboard server to see chart rankings, other players' stats and how you stack up.",
-                Modifier.padding(padding).padding(top = 48.dp),
-            ) { Button(onClick = onOpenSettings) { Text("Set up in Settings") } }
-        } else {
-            Finder(state, padding, onQuery, onOpenPlayer, onOpenChart)
-        }
+        Finder(state, padding, onQuery, onOpenPlayer, onOpenChart, onOpenSettings)
     }
 }
 
@@ -106,6 +98,7 @@ private fun Finder(
     onQuery: (String) -> Unit,
     onOpenPlayer: (String, String) -> Unit,
     onOpenChart: (String, String, String) -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val searching = state.query.trim().length >= 2
     LazyColumn(
@@ -116,17 +109,29 @@ private fun Finder(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQuery,
-                placeholder = { Text("Find a player or song") },
+                placeholder = { Text(if (state.connected) "Find a player or song" else "Find a song") },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 trailingIcon = if (state.query.isNotEmpty()) ({ IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, "Clear") } }) else null,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
         }
+        // The song list is on the phone, so songs can be looked up without a server.
+        if (!state.connected && !searching) {
+            item {
+                EmptyState(
+                    "Compare with other players",
+                    "Sign up on a leaderboard server to see chart rankings, other players' stats and how you stack up.",
+                ) { Button(onClick = onOpenSettings) { Text("Set up in Settings") } }
+            }
+            return@LazyColumn
+        }
         if (searching) {
-            item { SectionHeader("Players", Modifier.padding(horizontal = 16.dp)) }
-            if (state.results.isEmpty()) item { Hint("No players match") }
-            items(state.results, key = { "r-" + it.playerId }) { p -> PlayerRow(p.playerId, p.displayName, null, onOpenPlayer) }
+            if (state.connected) {
+                item { SectionHeader("Players", Modifier.padding(horizontal = 16.dp)) }
+                if (state.results.isEmpty()) item { Hint("No players match") }
+                items(state.results, key = { "r-" + it.playerId }) { p -> PlayerRow(p.playerId, p.displayName, null, onOpenPlayer) }
+            }
             item { SectionHeader("Songs", Modifier.padding(horizontal = 16.dp)) }
             if (state.songs.isEmpty()) item { Hint("No songs match") }
             items(state.songs, key = { "s-" + it.key }) { s -> SongRow(s, onOpenChart) }

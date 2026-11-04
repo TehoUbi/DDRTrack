@@ -12,9 +12,9 @@ live, frame by frame, and takes a photo once the score and judgments agree
 across frames. It checks the numbers against DDR's scoring rules and fixes
 single-digit misreads. You confirm, and the play is saved.
 
-| Home | Progress | Chart + leaderboard | Scan review | Rival |
+| Home | Progress | Chart + leaderboard | Scan review | Player |
 |---|---|---|---|---|
-| ![](app/src/test/screenshots/home.png) | ![](app/src/test/screenshots/progress.png) | ![](app/src/test/screenshots/chart.png) | ![](app/src/test/screenshots/review.png) | ![](app/src/test/screenshots/compare.png) |
+| ![](app/src/test/screenshots/home.png) | ![](app/src/test/screenshots/progress.png) | ![](app/src/test/screenshots/chart.png) | ![](app/src/test/screenshots/review.png) | ![](app/src/test/screenshots/player.png) |
 
 *(Rendered by the screenshot tests with sample data.)*
 
@@ -42,16 +42,19 @@ single-digit misreads. You confirm, and the play is saved.
   and score by attempt for each chart. Tap a number to see what it means.
 - **Timing.** FAST/SLOW over your last 10 plays. When it leans 65/35 or
   more one way (over at least 40 timing errors), the home page says so and
-  suggests which way to move your timing offset.
+  suggests which way to move your timing offset. "Don't show this again"
+  hides the suggestion; Settings → Timing advice brings it back.
 - **Compare.** Search players and songs (Japanese titles by romanized name
   too), browse everyone on the server, and open any player's page: the same
   numbers as your home page, their recent plays, and your head-to-head on
   the charts you share. Chart leaderboards show your rank and the share of
   players you beat.
-- **Cloud backup.** Firebase Auth (anonymous) and Firestore keep a copy of
-  plays and sessions and restore them on a new phone.
+- **Account backup.** Once you've signed up on a leaderboard server, your
+  whole log (every play, with notes and FAST/SLOW, including ones the
+  leaderboard rejects) is backed up there privately. On a new phone, sign
+  in with your recovery code and it comes back.
 - **Your data.** CSV export, plus JSON backup and restore through the
-  system file picker.
+  system file picker. Always dark.
 - **Song jackets.** Shown next to plays and charts. Each is downloaded from
   3icecream.com the first time it appears (about 7 KB) and cached on the
   phone (up to 20 MB), so the app ships none of them.
@@ -70,10 +73,10 @@ flowchart LR
         ROOM --> UI[Home / History / Progress / Compare]
         ROOM --> WM[WorkManager]
     end
-    WM -- anonymous auth --> FS[(Firebase Firestore<br/>users/uid/plays, sessions)]
-    WM -- bearer token --> API[Leaderboard server<br/>Ktor]
-    API --> PG[(PostgreSQL<br/>players, charts, scores)]
-    UI -- leaderboards, rivals --> API
+    WM -- bearer token: scores, private log --> API[Leaderboard server<br/>Ktor]
+    API --> PG[(PostgreSQL<br/>players, charts, scores, log_entries)]
+    UI -- leaderboards, player pages --> API
+    UI -- weekly song list, jackets --> ICE[3icecream.com]
 ```
 
 Four Gradle modules:
@@ -82,14 +85,15 @@ Four Gradle modules:
 |---|---|
 | `:core` | Plain Kotlin, no Android types: DDR scoring rules, the OCR result parser, scan validation and repair, frame-quality checks, multi-frame voting, song catalog and matching, sessions and progress statistics, and the leaderboard API models. Unit-tested on the JVM. |
 | `:ocr` | Plain Kotlin: the PP-OCRv6 text detector and recogniser on ONNX Runtime, and the sequence of reads that turns a photo into a parse. The same code runs on the phone and in tests against photos of real screens. |
-| `:app` | The Android app: Compose UI, CameraX, ML Kit (live preview), Room, DataStore, Hilt, WorkManager, Firebase, OkHttp. |
+| `:app` | The Android app: Compose UI, CameraX, ML Kit (live preview), Room, DataStore, Hilt, WorkManager, OkHttp, Coil. |
 | `:server` | The leaderboard service: Ktor, PostgreSQL through HikariCP and plain SQL, Flyway migrations. |
 
-Room is the source of truth on the phone. Firestore is a per-player
-backup. PostgreSQL holds the shared data that Firestore handles poorly:
-ranking every player's best on a chart (`RANK()` / `PERCENT_RANK()`
-window functions over a `DISTINCT ON` personal-bests view) and joining two
-players' bests for head-to-heads.
+Room is the source of truth on the phone. The server keeps two separate
+things per player: public scores, validated, for ranking every player's best
+on a chart (`RANK()` / `PERCENT_RANK()` window functions over a
+`DISTINCT ON` personal-bests view) and head-to-heads; and a private copy of
+the whole log, which only that player's token can read, for backup and
+restore.
 
 ### The scan pipeline
 
@@ -145,29 +149,24 @@ players' bests for head-to-heads.
 tested against the exported schemas):
 
 - `plays`: one row per play. Includes judgments, FAST/SLOW, lamp and
-  grade, source and scan confidence. Also two outbox columns,
-  `leaderboard_status` and `cloud_dirty`, with deletions kept as
-  tombstones until they've synced.
+  grade, source and scan confidence. Also two outbox columns:
+  `leaderboard_status` for the public leaderboard and `cloud_dirty` for
+  the account backup (named for the Firestore backup it replaced). Deletions
+  are kept as tombstones so they reach the server.
 - `sessions`: derived, regrouped on every write so back-dated or deleted
   plays keep sessions right.
 - `user_songs`: titles you saved that aren't in the bundled catalog.
 
-**Firestore** (rules in `firebase/firestore.rules`; each user can only
-reach their own tree):
+**PostgreSQL** (`server/src/main/resources/db/migration`): `players`
+(with a SHA-256 of the recovery code), `api_tokens` (SHA-256 of the token
+only), `charts` (keyed by the same `SongKey` slug the app uses), `scores`
+(unique per player and client id, so retries and edits are idempotent),
+the `personal_bests` view, and `log_entries`, each player's private log.
 
-```
-users/{uid}                       displayName, playCount, updatedAt
-users/{uid}/plays/{playId}        flat play document + updatedAt + deleted
-users/{uid}/sessions/{sessionId}  startedAt, endedAt, playCount, averageScore, bestScore, averageExRatio, ...
-```
-
-Sync pushes dirty rows in batches of 400 and pulls rows newer than a
-high-water mark. Last writer wins by `updatedAt`.
-
-**PostgreSQL** (`server/src/main/resources/db/migration`): `players`,
-`api_tokens` (SHA-256 of the token only), `charts` (keyed by the same
-`SongKey` slug the app uses), `scores` (unique per player and client id,
-so retries and edits are idempotent), and the `personal_bests` view.
+The backup pushes changed rows in batches of 400 and pulls entries changed
+after the last server revision it saw (a server-assigned sequence, so
+entries that share an edit time are never skipped). The newer `updatedAt`
+wins on both sides.
 
 ## Building
 
@@ -184,20 +183,12 @@ handles the rest. The first build downloads the PP-OCRv6 models (about
 
 The APK installs on Android 8.0+ (API 26) on 64-bit ARM phones and x86_64
 emulators. Reading a photo takes a few seconds on a recent phone. Scanning,
-history, progress, backup and restore all work with no server or Firebase
-project.
+history, progress, song search, and file backup and restore all work with
+no server.
 
-### Firebase (optional)
-
-1. Create a Firebase project, add an Android app with package
-   `com.tehoubi.ddrtracker`, and enable **Anonymous** sign-in and
-   **Cloud Firestore**.
-2. Put the downloaded `google-services.json` in `app/` (it's gitignored).
-3. `firebase deploy --only firestore` to install the rules.
-4. Rebuild. Settings → Cloud backup now offers the switch.
-
-Without `google-services.json` the Google Services plugin isn't applied,
-and the app says the build has no Firebase project.
+`./gradlew :app:assembleRelease` builds a release APK, signed with the key
+in `keystore.properties` (gitignored: `storeFile`, `storePassword`,
+`keyAlias`, `keyPassword`) or, without one, the debug key.
 
 ### Leaderboard server (optional)
 
@@ -219,14 +210,23 @@ docker compose up -d        # PostgreSQL 16 + the server on :8080
 ```
 
 Then in the app: Settings → Leaderboard → `http://<your computer's LAN IP>:8080`
-→ Test → Sign up. Use `http://10.0.2.2:8080` from an emulator. Plain HTTP is
-allowed because servers are usually on a home network; use `https://` if
-yours has a certificate.
+→ Test → Sign up, and save the recovery code it shows. Use
+`http://10.0.2.2:8080` from an emulator. Plain HTTP is accepted only for
+private addresses (home and office networks, the emulator's host, Tailscale,
+`*.local` names): the API token would otherwise cross the internet in the
+clear. A server on the internet needs `https://`.
+
+A server in WSL2 is only reachable from the Windows machine it runs on;
+other devices need Windows port forwarding. To share a server with friends,
+a private network such as Tailscale is simpler and safer than opening ports;
+for a public one, run the Docker image on a host with HTTPS in front.
 
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/health` | Database reachability |
-| POST | `/v1/players` | Register `{displayName}` → `{playerId, token}`. Rate limited. |
+| POST | `/v1/players` | Register `{displayName}` → `{playerId, token, recoveryCode}`. Rate limited. |
+| POST | `/v1/players/recover` | `{recoveryCode}` → a new token; the player's old tokens are revoked. Rate limited. |
+| POST | `/v1/players/me/recovery-code` | Replace the recovery code |
 | GET/PATCH | `/v1/players/me` | Profile with totals; rename |
 | GET | `/v1/players` | Everyone, most recently active first |
 | GET | `/v1/players/search?q=` | Find rivals |
@@ -237,10 +237,14 @@ yours has a certificate.
 | GET | `/v1/charts/{songKey}/{style}/{difficulty}/leaderboard` | Ranked bests, plus your row and percentile when authenticated |
 | GET | `/v1/players/{id\|me}/compare/{rival}` | Wins, losses and ties on shared charts |
 | GET | `/v1/charts/popular` | Most-played charts |
+| PUT | `/v1/me/log` | Back up up to 500 log entries; the newer copy of each wins |
+| GET | `/v1/me/log?after=` | Log entries changed after a revision, for restore and sync |
 
 Server configuration comes from the environment: `DATABASE_URL`,
-`DATABASE_USER`, `DATABASE_PASSWORD`, `PORT`, `DATABASE_POOL_SIZE` and
-`REGISTRATIONS_PER_HOUR` (see `.env.example`).
+`DATABASE_USER`, `DATABASE_PASSWORD`, `PORT`, `DATABASE_POOL_SIZE`,
+`REGISTRATIONS_PER_HOUR` (sign-ups and recoveries per address) and
+`REQUESTS_PER_MINUTE` (all requests per address, default 600). See
+`.env.example`.
 
 ## Trying it without a cabinet
 
@@ -275,16 +279,17 @@ Server configuration comes from the environment: `DATABASE_URL`,
   every screen has to come out right, Japanese titles included. Skipped
   when the photos aren't there.
 - `app`: Room repository and session grouping, migrations, leaderboard
-  upload against MockWebServer (including the edit-during-upload race),
-  the HTTP client, review-form validation, filters, Firestore document
-  mapping, backup round-trips, and the sample backup. Plus Roborazzi
-  screenshots of every screen.
+  upload and account backup against MockWebServer (including the
+  edit-during-upload race, paged restores and deletions from another
+  phone), the HTTP client and its plain-HTTP guard, the song list
+  download, review-form validation, filters, file backup round-trips, and
+  the sample backup. Plus Roborazzi screenshots of every screen.
 - `server`: every endpoint against a real PostgreSQL through
   embedded-postgres, including ranking ties, idempotent resubmission,
-  auth and rate limiting.
+  private logs and recovery codes, auth and rate limiting.
 
-CI (`.github/workflows/ci.yml`) runs all three suites, verifies the
-screenshots, uploads the debug APK and builds the server image.
+CI (`.github/workflows/ci.yml`) runs the core, server, OCR and app suites,
+verifies the screenshots, uploads the debug APK and builds the server image.
 
 ## Limitations
 
@@ -295,15 +300,17 @@ screenshots, uploads the debug APK and builds the server image.
   title is matched on later scans. Settings → Song list → Check now
   fetches new songs at once. On the review screen, Japanese titles can be
   found by their romanized names ("buta thunder").
-- Apart from what you set up (leaderboard, Firebase), the app only goes
-  online to 3icecream.com: the weekly song-list check and song jackets. It
-  sends nothing about you, but the site sees which jackets you view.
+- Apart from a leaderboard server you set up, the app only goes online to
+  3icecream.com: the weekly song-list check and song jackets. It sends
+  nothing about you, but the site sees which jackets you view.
 - The result screen doesn't show N.G. (dropped freezes). The validator
   infers them from the score, but a scan can over-report a full combo on
   charts with freezes when the score check is inconclusive.
-- Leaderboard identity is a token stored on the phone. There's no
-  password recovery: signing out on a server you don't own loses that
-  account.
+- Leaderboard identity is a token stored on the phone, with a recovery
+  code as the only way back in: lose both and the account is gone.
+- Scores are self-reported. The server checks that a play is internally
+  consistent (the judgments, EX score and score agree), not that it was
+  really played.
 
 ## License
 

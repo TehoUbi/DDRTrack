@@ -28,6 +28,9 @@ import javax.inject.Singleton
 
 class NotConnectedException : IllegalStateException("Set up a leaderboard server in Settings first")
 
+/** A successful sign-up or recovery. [recoveryCode] is set only when one was just made. */
+data class SignedIn(val displayName: String, val recoveryCode: String?)
+
 /** Upload state of the local log, for the settings screen. */
 data class UploadCounts(val pending: Int = 0, val submitted: Int = 0, val rejected: Int = 0)
 
@@ -49,16 +52,48 @@ class LeaderboardRepository @Inject constructor(
         client.health(LeaderboardClient.normalizeBaseUrl(url) ?: throw IllegalArgumentException("Not a valid URL"))
     }
 
-    /** Registers on [url] and queues the whole log for upload there. */
-    suspend fun register(url: String, displayName: String): Result<LeaderboardAccount> = runCatching {
-        val base = LeaderboardClient.normalizeBaseUrl(url) ?: throw IllegalArgumentException("Not a valid URL")
+    /**
+     * Registers on [url] and queues the whole log for upload and backup
+     * there. The result carries the recovery code, which the player must be
+     * shown: the server can't show it again.
+     */
+    suspend fun register(url: String, displayName: String): Result<SignedIn> = runCatching {
+        val base = secureBase(url)
         val r = client.register(base, displayName.trim())
-        val account = LeaderboardAccount(base, r.playerId, r.displayName, r.token)
-        settings.setServerUrl(base)
+        signIn(LeaderboardAccount(base, r.playerId, r.displayName, r.token))
+        SignedIn(r.displayName, r.recoveryCode)
+    }
+
+    /**
+     * Signs back in to an existing account on [url] with its recovery code
+     * (on a new phone, say). The log backed up there is restored by the next
+     * backup run, which starts at once.
+     */
+    suspend fun recover(url: String, recoveryCode: String): Result<SignedIn> = runCatching {
+        val base = secureBase(url)
+        val r = client.recover(base, recoveryCode.trim())
+        signIn(LeaderboardAccount(base, r.playerId, r.displayName, r.token))
+        SignedIn(r.displayName, null)
+    }
+
+    /** Replaces the account's recovery code; the old one stops working. */
+    suspend fun newRecoveryCode(): Result<String> = withAccount { a -> client.newRecoveryCode(a.serverUrl, a.token).recoveryCode }
+
+    private suspend fun signIn(account: LeaderboardAccount) {
+        settings.setServerUrl(account.serverUrl)
         settings.saveAccount(account)
         db.playDao().requeueAll()
+        db.playDao().markAllForBackup()
         sync.playsChanged()
-        account
+    }
+
+    /** The normalised URL, refusing plain HTTP to anything but a private network (the token would travel in the clear). */
+    private fun secureBase(url: String): String {
+        val base = LeaderboardClient.normalizeBaseUrl(url) ?: throw IllegalArgumentException("Not a valid URL")
+        if (!LeaderboardClient.isSafeToUse(base)) {
+            throw IllegalArgumentException("Use an https:// address for a server on the internet; plain http would send your login unencrypted")
+        }
+        return base
     }
 
     suspend fun rename(displayName: String): Result<PlayerSummary> = withAccount { a ->

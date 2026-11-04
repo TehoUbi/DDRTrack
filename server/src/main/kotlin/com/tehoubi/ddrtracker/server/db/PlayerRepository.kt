@@ -10,18 +10,47 @@ class DisplayNameTakenException(name: String) : RuntimeException("Display name \
 
 class PlayerRepository(private val db: Database) {
 
-    /** Creates a player and their first token. Returns (summary, token). */
-    suspend fun register(displayName: String): Pair<PlayerSummary, String> = db.transaction {
+    /** Creates a player with their first token and a recovery code. Returns (summary, token, recovery code). */
+    suspend fun register(displayName: String): Triple<PlayerSummary, String, String> = db.transaction {
         val id = UUID.randomUUID()
         val token = Tokens.generate()
+        val code = Tokens.recoveryCode()
         try {
-            update("INSERT INTO players (id, display_name) VALUES (?, ?)", id, displayName)
+            update(
+                "INSERT INTO players (id, display_name, recovery_hash) VALUES (?, ?, ?)",
+                id, displayName, Tokens.hash(Tokens.normalizeRecoveryCode(code)),
+            )
         } catch (e: PSQLException) {
             if (e.sqlState == UNIQUE_VIOLATION) throw DisplayNameTakenException(displayName)
             throw e
         }
         update("INSERT INTO api_tokens (token_hash, player_id) VALUES (?, ?)", Tokens.hash(token), id)
-        PlayerSummary(id.toString(), displayName) to token
+        Triple(PlayerSummary(id.toString(), displayName), token, code)
+    }
+
+    /** Replaces the player's recovery code (the old one stops working) and returns the new one. */
+    suspend fun newRecoveryCode(playerId: String): String = db.transaction {
+        val code = Tokens.recoveryCode()
+        update("UPDATE players SET recovery_hash = ? WHERE id = ?", Tokens.hash(Tokens.normalizeRecoveryCode(code)), UUID.fromString(playerId))
+        code
+    }
+
+    /**
+     * Signs back in with a recovery code: every existing token is revoked (a
+     * lost phone loses access) and a new one is issued. Null if no player
+     * has that code.
+     */
+    suspend fun recover(code: String): Pair<PlayerSummary, String>? = db.transaction {
+        val normalized = Tokens.normalizeRecoveryCode(code)
+        if (normalized.isEmpty()) return@transaction null
+        val player = query("SELECT id, display_name FROM players WHERE recovery_hash = ?", Tokens.hash(normalized)) {
+            PlayerSummary(it.getString("id"), it.getString("display_name"))
+        }.firstOrNull() ?: return@transaction null
+        val id = UUID.fromString(player.playerId)
+        val token = Tokens.generate()
+        update("DELETE FROM api_tokens WHERE player_id = ?", id)
+        update("INSERT INTO api_tokens (token_hash, player_id) VALUES (?, ?)", Tokens.hash(token), id)
+        player to token
     }
 
     /** The player a bearer token belongs to, or null. Records the use. */

@@ -1,5 +1,7 @@
 package com.tehoubi.ddrtracker.server.routes
 
+import com.tehoubi.ddrtracker.core.api.RecoverRequest
+import com.tehoubi.ddrtracker.core.api.RecoveryCodeResponse
 import com.tehoubi.ddrtracker.core.api.RegisterRequest
 import com.tehoubi.ddrtracker.core.api.RegisterResponse
 import com.tehoubi.ddrtracker.core.api.UpdatePlayerRequest
@@ -36,8 +38,14 @@ fun Route.playerRoutes(players: PlayerRepository) {
         rateLimit(REGISTRATION_LIMIT) {
             post {
                 val request = call.receive<RegisterRequest>()
-                val (player, token) = players.register(validDisplayName(request.displayName))
-                call.respond(HttpStatusCode.Created, RegisterResponse(player.playerId, player.displayName, token))
+                val (player, token, code) = players.register(validDisplayName(request.displayName))
+                call.respond(HttpStatusCode.Created, RegisterResponse(player.playerId, player.displayName, token, code))
+            }
+            // Shares the sign-up limit, which also stops anyone guessing codes.
+            post("/recover") {
+                val request = call.receive<RecoverRequest>()
+                val (player, token) = players.recover(request.recoveryCode) ?: throw NotFoundException("No account has that recovery code")
+                call.respond(RegisterResponse(player.playerId, player.displayName, token))
             }
         }
 
@@ -56,6 +64,9 @@ fun Route.playerRoutes(players: PlayerRepository) {
         authenticate("api") {
             get("/me") {
                 call.respond(players.profile(call.currentPlayer().playerId) ?: throw NotFoundException("No such player"))
+            }
+            post("/me/recovery-code") {
+                call.respond(RecoveryCodeResponse(players.newRecoveryCode(call.currentPlayer().playerId)))
             }
             patch("/me") {
                 val request = call.receive<UpdatePlayerRequest>()

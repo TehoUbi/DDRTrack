@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 (2026-11-04)
 
-Photos are read with a new OCR engine that reads Japanese titles.
+Japanese titles, a new OCR engine, player pages, and your log backed up to
+your own leaderboard account instead of Firebase.
 
 - Photos and screenshots are read with PaddleOCR's PP-OCRv6 models on
   ONNX Runtime instead of ML Kit. One model reads kana, kanji and Latin,
@@ -20,13 +21,25 @@ Photos are read with a new OCR engine that reads Japanese titles.
 - The song list refreshes itself weekly from 3icecream.com, so songs
   released after this build are recognised. Settings shows the count and
   has a "Check now" button.
+- Account backup replaces Firebase: your whole log (notes, FAST/SLOW, and
+  plays the leaderboard rejects) is backed up privately to your leaderboard
+  account and restored on a new phone with a recovery code, shown once at
+  sign-up. Recovering revokes the old phone's access. Firebase and its
+  setup are gone.
+- Signing up over plain http is refused unless the server is on a private
+  network, so a token never crosses the internet unencrypted. The token is
+  also kept out of Android's device backups.
+- The server limits every client to 600 requests a minute
+  (`REQUESTS_PER_MINUTE`).
+- Song search works without a server.
 - Always dark, whatever the phone's setting.
 - Player pages: anyone on the leaderboard server, with the same numbers as
   your home page, their recent plays and your head-to-head. Compare's search
   finds songs as well as players, and lists everyone on the server.
 - Tap Comfort level, EX% or Timing for an explanation.
 - "Early misses" is now Timing: FAST/SLOW over your last 10 plays, with a
-  highlighted suggestion to change your offset when it leans one way.
+  highlighted suggestion to change your offset when it leans one way, and
+  a "Don't show this again" button (Settings → Timing advice).
 - Song jackets next to plays, on the play screen and in compare lists:
   downloaded on first view and cached (20 MB at most), none bundled.
 - Scan confidence only shows when it's particularly low (under 50%). When

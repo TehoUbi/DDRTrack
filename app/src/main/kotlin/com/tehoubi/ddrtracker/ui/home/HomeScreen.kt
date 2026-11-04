@@ -51,7 +51,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    HomeContent(uiState, onScanClick, onManualClick, onPlayClick, onSettingsClick, contentPadding)
+    HomeContent(uiState, onScanClick, onManualClick, onPlayClick, onSettingsClick, contentPadding, onHideTimingAdvice = viewModel::hideTimingAdvice)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -63,6 +63,7 @@ fun HomeContent(
     onPlayClick: (String) -> Unit,
     onSettingsClick: () -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
+    onHideTimingAdvice: () -> Unit = {},
 ) {
     var explaining by remember { mutableStateOf<Explanation?>(null) }
     explaining?.let { ExplanationDialog(it) { explaining = null } }
@@ -112,7 +113,9 @@ fun HomeContent(
                 uiState.overview?.let { o ->
                     item { OverviewTiles(o, onExplain = { explaining = it }) }
                 }
-                uiState.timing?.let { bias -> item { TimingAdvice(bias, onExplain = { explaining = it }) } }
+                uiState.timing?.takeIf { uiState.timingAdvice }?.let { bias ->
+                    item { TimingAdvice(bias, onExplain = { explaining = it }, onHide = onHideTimingAdvice) }
+                }
                 uiState.lastSession?.let { s ->
                     item { SectionHeader("Last session") }
                     item {

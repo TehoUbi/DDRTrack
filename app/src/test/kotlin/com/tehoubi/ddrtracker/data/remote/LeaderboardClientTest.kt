@@ -9,6 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class LeaderboardClientTest {
 
@@ -64,5 +65,16 @@ class LeaderboardClientTest {
         assertEquals("https://ddr.example.com/api", LeaderboardClient.normalizeBaseUrl("https://ddr.example.com/api/"))
         assertNull(LeaderboardClient.normalizeBaseUrl(""))
         assertEquals("http://h:1/v1/x", LeaderboardClient.resolve("h:1/", "v1/x").toString())
+    }
+
+    @Test
+    fun `plain http is only for private networks`() {
+        listOf(
+            "http://10.0.2.2:8080", "http://192.168.1.20:8080", "http://172.20.0.5", "http://127.0.0.1:8080",
+            "http://localhost:8080", "http://100.101.102.103", "http://nas.local", "http://laptop:8080",
+            "http://box.tail1234.ts.net", "http://[::1]:8080", "https://ddr.example.com",
+        ).forEach { assertTrue(LeaderboardClient.isSafeToUse(it), it) }
+        listOf("http://ddr.example.com", "http://203.0.113.7:8080", "http://172.32.0.1", "http://[2001:db8::1]")
+            .forEach { assertFalse(LeaderboardClient.isSafeToUse(it), it) }
     }
 }

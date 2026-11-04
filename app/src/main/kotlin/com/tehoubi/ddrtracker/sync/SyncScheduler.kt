@@ -9,7 +9,6 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.tehoubi.ddrtracker.cloud.CloudSyncWorker
 import com.tehoubi.ddrtracker.data.songs.SongListWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -39,17 +38,17 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(LEADERBOARD_NOW, ExistingWorkPolicy.REPLACE, request)
-        cloudNow()
+        backupNow()
     }
 
-    /** Firestore backup; the worker exits at once if cloud sync is off or unavailable. */
-    fun cloudNow() {
-        val request = OneTimeWorkRequestBuilder<CloudSyncWorker>()
+    /** Account backup; the worker exits at once if there's no account or backup is off. */
+    fun backupNow() {
+        val request = OneTimeWorkRequestBuilder<AccountBackupWorker>()
             .setConstraints(network)
             .setInitialDelay(5, TimeUnit.SECONDS)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(CLOUD_NOW, ExistingWorkPolicy.REPLACE, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(BACKUP_NOW, ExistingWorkPolicy.REPLACE, request)
     }
 
     fun schedulePeriodic() {
@@ -58,8 +57,11 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 5, TimeUnit.MINUTES)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(LEADERBOARD_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
-        val cloud = PeriodicWorkRequestBuilder<CloudSyncWorker>(12, TimeUnit.HOURS).setConstraints(network).build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(CLOUD_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, cloud)
+        // Also picks up plays changed on the player's other phones.
+        val backup = PeriodicWorkRequestBuilder<AccountBackupWorker>(12, TimeUnit.HOURS).setConstraints(network).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(BACKUP_PERIODIC, ExistingPeriodicWorkPolicy.KEEP, backup)
+        // The Firestore backup this replaced.
+        WorkManager.getInstance(context).cancelUniqueWork("cloud-sync-periodic")
         // New songs arrive every few weeks; the first run is right after install.
         val songs = PeriodicWorkRequestBuilder<SongListWorker>(7, TimeUnit.DAYS)
             .setConstraints(network)
@@ -71,8 +73,8 @@ class SyncScheduler @Inject constructor(@ApplicationContext private val context:
     companion object {
         const val LEADERBOARD_NOW = "leaderboard-sync"
         const val LEADERBOARD_PERIODIC = "leaderboard-sync-periodic"
-        const val CLOUD_NOW = "cloud-sync"
-        const val CLOUD_PERIODIC = "cloud-sync-periodic"
+        const val BACKUP_NOW = "account-backup"
+        const val BACKUP_PERIODIC = "account-backup-periodic"
         const val SONGS_PERIODIC = "song-list-periodic"
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tehoubi.ddrtracker.core.stats.Overview
 import com.tehoubi.ddrtracker.core.stats.ProgressStats
 import com.tehoubi.ddrtracker.core.stats.TimingBias
+import com.tehoubi.ddrtracker.data.settings.SettingsRepository
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.model.PlaySession
 import com.tehoubi.ddrtracker.domain.repository.PlayRepository
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
@@ -28,19 +30,22 @@ data class HomeUiState(
     val recent: List<Play> = emptyList(),
     val newBestIds: Set<String> = emptySet(),
     val timing: TimingBias? = null,
+    val timingAdvice: Boolean = true,
     val error: String? = null,
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     playRepository: PlayRepository,
+    private val settings: SettingsRepository,
     clock: Clock,
 ) : ViewModel() {
 
     val uiState: StateFlow<HomeUiState> = combine(
         playRepository.observePlays(),
         playRepository.observeSessions(),
-    ) { plays, sessions ->
+        settings.settings,
+    ) { plays, sessions, s ->
         val stats = ProgressStats(plays, clock.zone)
         val last = sessions.firstOrNull()
         HomeUiState(
@@ -51,9 +56,14 @@ class HomeViewModel @Inject constructor(
             recent = plays.take(12),
             newBestIds = stats.newBestIds(),
             timing = stats.timingBias(),
+            timingAdvice = s.timingAdvice,
         )
     }
         .flowOn(Dispatchers.Default)
         .catch { emit(HomeUiState(isLoading = false, error = it.message)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    fun hideTimingAdvice() {
+        viewModelScope.launch { settings.setTimingAdvice(false) }
+    }
 }

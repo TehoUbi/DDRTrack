@@ -10,12 +10,6 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
-// Firebase is optional: without app/google-services.json the app runs fully
-// offline and the cloud sync screen says so instead of failing the build.
-if (file("google-services.json").exists()) {
-    apply(plugin = libs.plugins.google.services.get().pluginId)
-}
-
 android {
     namespace = "com.tehoubi.ddrtracker"
     compileSdk = 35
@@ -24,8 +18,8 @@ android {
         applicationId = "com.tehoubi.ddrtracker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // ONNX Runtime is ~35 MB of native code per ABI. 64-bit ARM covers
@@ -137,11 +131,6 @@ dependencies {
     implementation(libs.onnxruntime.android)
     implementation(libs.mlkit.text.recognition)
 
-    // Firebase
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.firestore)
-    implementation(libs.firebase.auth)
-
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
     implementation(libs.hilt.work)
@@ -162,7 +151,6 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.play.services)
 
     // Testing
     testImplementation(libs.junit)

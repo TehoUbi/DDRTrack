@@ -9,7 +9,6 @@ build/
 .externalNativeBuild
 .cxx
 local.properties
-google-services.json
 *.env
 *.keystore
 keystore.properties

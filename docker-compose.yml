@@ -24,6 +24,7 @@ services:
       DATABASE_USER: ddrtracker
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-ddrtracker}
       REGISTRATIONS_PER_HOUR: ${REGISTRATIONS_PER_HOUR:-10}
+      REQUESTS_PER_MINUTE: ${REQUESTS_PER_MINUTE:-600}
     ports:
       - "8080:8080"
     depends_on:

@@ -50,7 +50,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ProgressScreen(contentPadding: PaddingValues = PaddingValues(), viewModel: ProgressViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    ProgressContent(state, contentPadding)
+    ProgressContent(state, contentPadding, onHideTimingAdvice = viewModel::hideTimingAdvice)
 }
 
 private val weekFormat = DateTimeFormatter.ofPattern("MMM d")
@@ -59,7 +59,7 @@ private val sessionFormat = DateTimeFormatter.ofPattern("EEE MMM d").withZone(Zo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProgressContent(state: ProgressUiState, contentPadding: PaddingValues = PaddingValues()) {
+fun ProgressContent(state: ProgressUiState, contentPadding: PaddingValues = PaddingValues(), onHideTimingAdvice: () -> Unit = {}) {
     var explaining by remember { mutableStateOf<Explanation?>(null) }
     explaining?.let { ExplanationDialog(it) { explaining = null } }
     Scaffold(
@@ -87,7 +87,9 @@ fun ProgressContent(state: ProgressUiState, contentPadding: PaddingValues = Padd
                     TimingTile(state.timing, Modifier.weight(1f), onExplain = { explaining = it })
                 }
             }
-            state.timing?.let { bias -> item { TimingAdvice(bias, onExplain = { explaining = it }) } }
+            state.timing?.takeIf { state.timingAdvice }?.let { bias ->
+                item { TimingAdvice(bias, onExplain = { explaining = it }, onHide = onHideTimingAdvice) }
+            }
             if (state.weeks.isNotEmpty()) {
                 item {
                     ChartCard("Plays per week", "Last ${state.weeks.size} weeks") {

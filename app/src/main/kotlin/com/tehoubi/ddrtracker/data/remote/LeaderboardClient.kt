@@ -5,9 +5,15 @@ import com.tehoubi.ddrtracker.core.api.ChartSummary
 import com.tehoubi.ddrtracker.core.api.Comparison
 import com.tehoubi.ddrtracker.core.api.HealthResponse
 import com.tehoubi.ddrtracker.core.api.Leaderboard
+import com.tehoubi.ddrtracker.core.api.LogEntry
+import com.tehoubi.ddrtracker.core.api.LogPage
+import com.tehoubi.ddrtracker.core.api.LogUpload
+import com.tehoubi.ddrtracker.core.api.LogUploadResponse
 import com.tehoubi.ddrtracker.core.api.PlayerProfile
-import com.tehoubi.ddrtracker.core.api.PublicPlay
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
+import com.tehoubi.ddrtracker.core.api.PublicPlay
+import com.tehoubi.ddrtracker.core.api.RecoverRequest
+import com.tehoubi.ddrtracker.core.api.RecoveryCodeResponse
 import com.tehoubi.ddrtracker.core.api.RegisterRequest
 import com.tehoubi.ddrtracker.core.api.RegisterResponse
 import com.tehoubi.ddrtracker.core.api.ScoreSubmission
@@ -83,6 +89,17 @@ class LeaderboardClient @Inject constructor() {
 
     suspend fun popular(base: String, limit: Int = 20): List<ChartSummary> = get(base, "v1/charts/popular?limit=$limit", null)
 
+    suspend fun recover(base: String, recoveryCode: String): RegisterResponse =
+        send(base, "v1/players/recover", "POST", null, RecoverRequest(recoveryCode))
+
+    suspend fun newRecoveryCode(base: String, token: String): RecoveryCodeResponse =
+        send(base, "v1/players/me/recovery-code", "POST", token, Unit)
+
+    suspend fun uploadLog(base: String, token: String, entries: List<LogEntry>): LogUploadResponse =
+        send(base, "v1/me/log", "PUT", token, LogUpload(entries))
+
+    suspend fun log(base: String, token: String, after: Long): LogPage = get(base, "v1/me/log?after=$after", token)
+
     suspend fun players(base: String): List<PlayerProfile> = get(base, "v1/players", null)
 
     suspend fun profile(base: String, playerId: String): PlayerProfile = get(base, "v1/players/${encode(playerId)}", null)
@@ -133,6 +150,25 @@ class LeaderboardClient @Inject constructor() {
         fun resolve(base: String, path: String): HttpUrl {
             val root = normalizeBaseUrl(base) ?: throw IllegalArgumentException("Not a valid server URL: $base")
             return "$root/$path".toHttpUrlOrNull() ?: throw IllegalArgumentException("Bad path: $path")
+        }
+
+        /**
+         * True for https, or for plain http to a private network: this
+         * machine, the emulator's host (10.0.2.2), home and office ranges,
+         * link-local, Tailscale (100.64.0.0/10, *.ts.net, which encrypts
+         * anyway) and local names like "nas.local" or "laptop".
+         */
+        fun isSafeToUse(base: String): Boolean {
+            val url = base.toHttpUrlOrNull() ?: return false
+            if (url.isHttps) return true
+            val host = url.host.lowercase()
+            if (host == "localhost" || '.' !in host && ':' !in host) return true
+            if (listOf(".local", ".lan", ".home.arpa", ".internal", ".ts.net").any { host.endsWith(it) }) return true
+            if (':' in host) return host == "::1" || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80")
+            val octets = host.split('.').mapNotNull { it.toIntOrNull() }.takeIf { it.size == 4 } ?: return false
+            val (a, b) = octets
+            return a == 10 || a == 127 || (a == 192 && b == 168) || (a == 172 && b in 16..31) ||
+                (a == 169 && b == 254) || (a == 100 && b in 64..127)
         }
 
         /** "192.168.1.5:8080/" -> "http://192.168.1.5:8080", or null if unusable. */

@@ -38,11 +38,13 @@ data class Settings(
     val autoSubmit: Boolean = true,
     /** Players saved on the Compare tab. */
     val rivals: List<PlayerSummary> = emptyList(),
-    /** Back the log up to Firestore (only offered when the build has Firebase). */
-    val cloudSync: Boolean = false,
-    val cloudSyncedAt: Long? = null,
-    /** High-water mark of remote updatedAt already pulled. */
-    val cloudPulledAt: Long = 0,
+    /** Back the whole log up, privately, to the leaderboard account. */
+    val backup: Boolean = true,
+    val backedUpAt: Long? = null,
+    /** The server's log revision already pulled; restores continue after it. */
+    val backupRevision: Long = 0,
+    /** Show the "you're stepping early / late" card when timing leans one way. */
+    val timingAdvice: Boolean = true,
 )
 
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -62,9 +64,10 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
         val accountServer = stringPreferencesKey("account_server")
         val autoSubmit = booleanPreferencesKey("auto_submit")
         val rivals = stringSetPreferencesKey("rivals")
-        val cloudSync = booleanPreferencesKey("cloud_sync")
-        val cloudSyncedAt = longPreferencesKey("cloud_synced_at")
-        val cloudPulledAt = longPreferencesKey("cloud_pulled_at")
+        val backup = booleanPreferencesKey("account_backup")
+        val backedUpAt = longPreferencesKey("backed_up_at")
+        val backupRevision = longPreferencesKey("backup_revision")
+        val timingAdvice = booleanPreferencesKey("timing_advice")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
@@ -85,9 +88,10 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             account = account?.takeIf { it.serverUrl == p[Keys.serverUrl].orEmpty() && it.token.isNotEmpty() },
             autoSubmit = p[Keys.autoSubmit] ?: true,
             rivals = p[Keys.rivals].orEmpty().mapNotNull { decodeRival(it) }.sortedBy { it.displayName.lowercase() },
-            cloudSync = p[Keys.cloudSync] ?: false,
-            cloudSyncedAt = p[Keys.cloudSyncedAt],
-            cloudPulledAt = p[Keys.cloudPulledAt] ?: 0,
+            backup = p[Keys.backup] ?: true,
+            backedUpAt = p[Keys.backedUpAt],
+            backupRevision = p[Keys.backupRevision] ?: 0,
+            timingAdvice = p[Keys.timingAdvice] ?: true,
         )
     }
 
@@ -101,7 +105,11 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
 
     suspend fun setAutoSubmit(enabled: Boolean) = store.edit { it[Keys.autoSubmit] = enabled }
 
+    /** Signs in; a different account than before restores its log from the start. */
     suspend fun saveAccount(account: LeaderboardAccount) = store.edit {
+        if (it[Keys.playerId] != account.playerId || it[Keys.accountServer] != account.serverUrl) {
+            it.remove(Keys.backupRevision); it.remove(Keys.backedUpAt)
+        }
         it[Keys.accountServer] = account.serverUrl
         it[Keys.playerId] = account.playerId
         it[Keys.displayName] = account.displayName
@@ -110,9 +118,11 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
 
     suspend fun setDisplayName(name: String) = store.edit { it[Keys.displayName] = name }
 
-    suspend fun setCloudSync(enabled: Boolean) = store.edit { it[Keys.cloudSync] = enabled }
-    suspend fun setCloudSyncedAt(at: Long) = store.edit { it[Keys.cloudSyncedAt] = at }
-    suspend fun setCloudPulledAt(at: Long) = store.edit { it[Keys.cloudPulledAt] = at }
+    suspend fun setBackup(enabled: Boolean) = store.edit { it[Keys.backup] = enabled }
+    suspend fun setBackedUpAt(at: Long) = store.edit { it[Keys.backedUpAt] = at }
+    suspend fun setBackupRevision(revision: Long) = store.edit { it[Keys.backupRevision] = revision }
+
+    suspend fun setTimingAdvice(enabled: Boolean) = store.edit { it[Keys.timingAdvice] = enabled }
 
     suspend fun addRival(rival: PlayerSummary) = store.edit { p ->
         val others = p[Keys.rivals].orEmpty().filterNot { decodeRival(it)?.playerId == rival.playerId }
@@ -129,5 +139,6 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
     suspend fun signOut() = store.edit {
         it.remove(Keys.accountServer); it.remove(Keys.playerId); it.remove(Keys.displayName); it.remove(Keys.token)
         it.remove(Keys.rivals)
+        it.remove(Keys.backupRevision); it.remove(Keys.backedUpAt)
     }
 }

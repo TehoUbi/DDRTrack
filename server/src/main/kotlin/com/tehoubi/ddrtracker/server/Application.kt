@@ -5,10 +5,12 @@ import com.tehoubi.ddrtracker.core.api.HealthResponse
 import com.tehoubi.ddrtracker.core.api.PlayerSummary
 import com.tehoubi.ddrtracker.server.db.Database
 import com.tehoubi.ddrtracker.server.db.DisplayNameTakenException
+import com.tehoubi.ddrtracker.server.db.LogRepository
 import com.tehoubi.ddrtracker.server.db.PlayerRepository
 import com.tehoubi.ddrtracker.server.db.ScoreRepository
 import com.tehoubi.ddrtracker.server.db.query
 import com.tehoubi.ddrtracker.server.routes.REGISTRATION_LIMIT
+import com.tehoubi.ddrtracker.server.routes.logRoutes
 import com.tehoubi.ddrtracker.server.routes.playerRoutes
 import com.tehoubi.ddrtracker.server.routes.scoreRoutes
 import io.ktor.http.HttpStatusCode
@@ -35,6 +37,7 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.json.Json
 import org.slf4j.event.Level
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 class BadRequestException(message: String) : RuntimeException(message)
 class NotFoundException(message: String) : RuntimeException(message)
@@ -47,6 +50,7 @@ fun ApplicationCall.currentPlayer(): PlayerSummary = principal<PlayerPrincipal>(
 class Services(val db: Database, val config: ServerConfig) {
     val players = PlayerRepository(db)
     val scores = ScoreRepository(db)
+    val logs = LogRepository(db)
 }
 
 fun main() {
@@ -67,6 +71,11 @@ fun Application.module(services: Services) {
     install(ContentNegotiation) { json(ApiJson) }
     install(CallLogging) { level = Level.INFO }
     install(RateLimit) {
+        // Every request, per client address: enough for the app, not for scraping or flooding.
+        global {
+            rateLimiter(limit = services.config.requestsPerMinute, refillPeriod = 1.minutes)
+            requestKey { it.request.origin.remoteHost }
+        }
         register(REGISTRATION_LIMIT) {
             rateLimiter(limit = services.config.registrationsPerHour, refillPeriod = 1.hours)
             requestKey { it.request.origin.remoteHost }
@@ -100,5 +109,6 @@ fun Application.module(services: Services) {
         }
         playerRoutes(services.players)
         scoreRoutes(services.players, services.scores)
+        logRoutes(services.logs)
     }
 }

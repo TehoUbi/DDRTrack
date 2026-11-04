@@ -8,6 +8,7 @@ import com.tehoubi.ddrtracker.core.stats.ProgressStats
 import com.tehoubi.ddrtracker.core.stats.TimePoint
 import com.tehoubi.ddrtracker.core.stats.TimingBias
 import com.tehoubi.ddrtracker.core.stats.WeekPoint
+import com.tehoubi.ddrtracker.data.settings.SettingsRepository
 import com.tehoubi.ddrtracker.domain.model.Play
 import com.tehoubi.ddrtracker.domain.model.PlaySession
 import com.tehoubi.ddrtracker.domain.repository.PlayRepository
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.Clock
 import javax.inject.Inject
 
@@ -34,20 +36,28 @@ data class ProgressUiState(
     val levelLamps: List<LevelLamps> = emptyList(),
     val recentExRatio: Double? = null,
     val timing: TimingBias? = null,
+    val timingAdvice: Boolean = true,
     val sessions: List<PlaySession> = emptyList(),
 )
 
 @HiltViewModel
 class ProgressViewModel @Inject constructor(
     repository: PlayRepository,
+    private val settings: SettingsRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
-    val uiState: StateFlow<ProgressUiState> = combine(repository.observePlays(), repository.observeSessions()) { plays, sessions ->
-        build(plays, sessions)
+    val uiState: StateFlow<ProgressUiState> = combine(
+        repository.observePlays(), repository.observeSessions(), settings.settings,
+    ) { plays, sessions, s ->
+        build(plays, sessions).copy(timingAdvice = s.timingAdvice)
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
+
+    fun hideTimingAdvice() {
+        viewModelScope.launch { settings.setTimingAdvice(false) }
+    }
 
     private fun build(plays: List<Play>, sessions: List<PlaySession>): ProgressUiState {
         val stats = ProgressStats(plays, clock.zone)

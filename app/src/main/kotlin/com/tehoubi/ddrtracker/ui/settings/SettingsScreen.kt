@@ -15,6 +15,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -39,12 +40,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.tehoubi.ddrtracker.cloud.CloudStatus
 import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
+import com.tehoubi.ddrtracker.sync.BackupStatus
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
@@ -64,8 +68,13 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             signOut = viewModel::signOut,
             retryRejected = viewModel::retryRejected,
             checkSongList = viewModel::checkSongList,
-            setCloudSync = viewModel::setCloudSync,
-            syncCloudNow = viewModel::syncCloudNow,
+            setTimingAdvice = viewModel::setTimingAdvice,
+            onRecoveryCodeChanged = viewModel::onRecoveryCodeChanged,
+            recover = viewModel::recover,
+            makeRecoveryCode = viewModel::makeRecoveryCode,
+            onRecoveryCodeShown = viewModel::onRecoveryCodeShown,
+            setBackup = viewModel::setBackup,
+            backupNow = viewModel::backupNow,
             exportCsv = viewModel::exportCsv,
             exportBackup = viewModel::exportBackup,
             restore = viewModel::restore,
@@ -86,8 +95,13 @@ class SettingsActions(
     val signOut: () -> Unit = {},
     val retryRejected: () -> Unit = {},
     val checkSongList: () -> Unit = {},
-    val setCloudSync: (Boolean) -> Unit = {},
-    val syncCloudNow: () -> Unit = {},
+    val setTimingAdvice: (Boolean) -> Unit = {},
+    val onRecoveryCodeChanged: (String) -> Unit = {},
+    val recover: () -> Unit = {},
+    val makeRecoveryCode: () -> Unit = {},
+    val onRecoveryCodeShown: () -> Unit = {},
+    val setBackup: (Boolean) -> Unit = {},
+    val backupNow: () -> Unit = {},
     val exportCsv: (Uri) -> Unit = {},
     val exportBackup: (Uri) -> Unit = {},
     val restore: (Uri) -> Unit = {},
@@ -103,6 +117,7 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
     }
     val settings = state.settings
     val account = settings.account
+    state.newRecoveryCode?.let { RecoveryCodeDialog(it, actions.onRecoveryCodeShown) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -148,6 +163,11 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
                 },
                 trailingContent = { TextButton(onClick = actions.checkSongList, enabled = !state.busy) { Text("Check now") } },
             )
+            ListItem(
+                headlineContent = { Text("Timing advice") },
+                supportingContent = { Text("Point it out when your recent plays lean early or late") },
+                trailingContent = { Switch(checked = settings.timingAdvice, onCheckedChange = actions.setTimingAdvice) },
+            )
             HorizontalDivider()
 
             SettingsHeader("Leaderboard")
@@ -191,6 +211,33 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
                         TextButton(onClick = actions.signOut, enabled = !state.busy) { Text("Sign out") }
                     }
                 }
+                if (account == null) {
+                    Text(
+                        "Already have an account on this server? Restore it with its recovery code.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    OutlinedTextField(
+                        value = state.recoveryCodeDraft,
+                        onValueChange = actions.onRecoveryCodeChanged,
+                        label = { Text("Recovery code") },
+                        placeholder = { Text("XXXXX-XXXXX-XXXXX-XXXXX-XXXXX") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedButton(
+                        onClick = actions.recover,
+                        enabled = !state.busy && state.serverUrlDraft.isNotBlank() && state.recoveryCodeDraft.isNotBlank(),
+                    ) { Text("Restore account") }
+                }
+            }
+            if (account != null) {
+                ListItem(
+                    headlineContent = { Text("Recovery code") },
+                    supportingContent = { Text("Signs you back in to this account on a new phone. Making a new one replaces the old.") },
+                    trailingContent = { TextButton(onClick = actions.makeRecoveryCode, enabled = !state.busy) { Text("New code") } },
+                )
             }
             if (account != null) {
                 ListItem(
@@ -209,8 +256,8 @@ fun SettingsContent(state: SettingsUiState, onBack: () -> Unit, actions: Setting
             }
             HorizontalDivider()
 
-            SettingsHeader("Cloud backup")
-            CloudSection(state, actions)
+            SettingsHeader("Backup")
+            BackupSection(state, actions)
             HorizontalDivider()
 
             SettingsHeader("Your data")
@@ -245,43 +292,63 @@ private fun DataSection(state: SettingsUiState, actions: SettingsActions) {
 private val syncedFormat = java.time.format.DateTimeFormatter.ofPattern("MMM d, h:mm a").withZone(java.time.ZoneId.systemDefault())
 
 @Composable
-private fun CloudSection(state: SettingsUiState, actions: SettingsActions) {
-    if (!state.cloudAvailable) {
+private fun BackupSection(state: SettingsUiState, actions: SettingsActions) {
+    val settings = state.settings
+    if (settings.account == null) {
         Text(
-            "This build has no Firebase project configured, so plays are stored on this phone only. " +
-                "Add app/google-services.json and rebuild to enable backup (see the README).",
+            "Sign up on a leaderboard server to back up your whole log there, privately, and restore it on a new phone " +
+                "with your recovery code. You can also back up to a file below.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         return
     }
-    val status = state.cloudStatus
+    val status = state.backupStatus
     ListItem(
-        headlineContent = { Text("Back up to Firebase") },
+        headlineContent = { Text("Back up to your account") },
         supportingContent = {
             Text(
-                when (status) {
-                    CloudStatus.Unavailable -> "Unavailable"
-                    CloudStatus.Off -> "Off — plays stay on this phone"
-                    CloudStatus.Syncing -> "Syncing…"
-                    is CloudStatus.Synced -> "Synced ${syncedFormat.format(java.time.Instant.ofEpochMilli(status.atMillis))} · " +
-                        "${status.pushed} up, ${status.pulled} down"
-                    is CloudStatus.Failed -> "Last sync failed: ${status.message}"
-                } + (state.settings.cloudSyncedAt?.takeIf { status == CloudStatus.Off && state.settings.cloudSync }
-                    ?.let { " · last synced ${syncedFormat.format(java.time.Instant.ofEpochMilli(it))}" } ?: "")
+                when {
+                    !settings.backup -> "Off. Plays still go to the leaderboard, but notes and FAST/SLOW stay on this phone"
+                    status is BackupStatus.Running -> "Backing up…"
+                    status is BackupStatus.Failed -> "Last backup failed: ${status.message}"
+                    settings.backedUpAt != null -> "Every play, with notes and FAST/SLOW, only visible to you · backed up " +
+                        syncedFormat.format(java.time.Instant.ofEpochMilli(settings.backedUpAt))
+                    else -> "Every play, with notes and FAST/SLOW, only visible to you"
+                }
             )
         },
-        trailingContent = { Switch(checked = state.settings.cloudSync, onCheckedChange = actions.setCloudSync) },
+        trailingContent = { Switch(checked = settings.backup, onCheckedChange = actions.setBackup) },
     )
-    if (state.settings.cloudSync) {
-        Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            TextButton(onClick = actions.syncCloudNow, enabled = status != CloudStatus.Syncing) { Text("Sync now") }
-            state.cloudUserId?.let {
-                Text("Account ${it.take(8)}…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+    if (settings.backup) {
+        TextButton(
+            onClick = actions.backupNow,
+            enabled = status != BackupStatus.Running,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        ) { Text("Back up now") }
     }
+}
+
+/** Shown once, right after the code is made: the server can't show it again. */
+@Composable
+private fun RecoveryCodeDialog(code: String, onDone: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text("Your recovery code") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Save this somewhere safe, like a password manager. It's the only way back into this account " +
+                        "on a new phone, and it won't be shown again."
+                )
+                Text(code, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace))
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text("I've saved it") } },
+        dismissButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(code)) }) { Text("Copy") } },
+    )
 }
 
 @Composable

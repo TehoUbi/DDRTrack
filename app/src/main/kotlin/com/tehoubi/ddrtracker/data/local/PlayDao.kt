@@ -63,15 +63,19 @@ interface PlayDao {
     @Query("SELECT leaderboard_status AS status, COUNT(*) AS count FROM plays WHERE deleted = 0 GROUP BY leaderboard_status")
     fun observeLeaderboardCounts(): Flow<List<StatusCount>>
 
-    /** Rows (tombstones included) not yet pushed to Firestore. */
-    @Query("SELECT * FROM plays WHERE cloud_dirty = 1 ORDER BY updated_at LIMIT :limit")
-    suspend fun cloudDirty(limit: Int): List<PlayEntity>
+    // Account backup outbox. The column is still called cloud_dirty from when
+    // the backup went to Firestore; renaming it would only cost a migration.
 
+    /** Rows (tombstones included) not yet backed up. */
+    @Query("SELECT * FROM plays WHERE cloud_dirty = 1 ORDER BY updated_at LIMIT :limit")
+    suspend fun backupPending(limit: Int): List<PlayEntity>
+
+    /** Only if unchanged since it was read, so an edit made mid-upload is sent again. */
     @Query("UPDATE plays SET cloud_dirty = 0 WHERE id = :id AND updated_at = :updatedAt")
-    suspend fun markCloudClean(id: String, updatedAt: Long)
+    suspend fun markBackedUp(id: String, updatedAt: Long)
 
     @Query("UPDATE plays SET cloud_dirty = 1")
-    suspend fun markAllCloudDirty()
+    suspend fun markAllForBackup()
 
     @Query("SELECT id, updated_at AS updatedAt FROM plays WHERE id IN (:ids)")
     suspend fun versions(ids: List<String>): List<RowVersion>

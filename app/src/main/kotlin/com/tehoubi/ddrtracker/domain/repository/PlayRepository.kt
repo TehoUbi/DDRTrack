@@ -30,6 +30,6 @@ interface PlayRepository {
 
     suspend fun deletePlay(id: String): Result<Unit>
 
-    /** Inserts many plays at once (imports, cloud restore). */
+    /** Inserts many plays at once (file imports). */
     suspend fun savePlays(plays: List<Play>): Result<Int>
 }

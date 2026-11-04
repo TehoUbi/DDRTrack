@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.tehoubi.ddrtracker.core.stats.Overview
@@ -106,9 +107,12 @@ fun TimingTile(bias: TimingBias?, modifier: Modifier = Modifier, onExplain: (Exp
     )
 }
 
-/** A highlighted recommendation, shown only when recent timing leans clearly one way. */
+/**
+ * A highlighted recommendation, shown only when recent timing leans clearly
+ * one way. [onHide] turns it off for good (Settings > Timing advice brings it back).
+ */
 @Composable
-fun TimingAdvice(bias: TimingBias?, onExplain: (Explanation) -> Unit) {
+fun TimingAdvice(bias: TimingBias?, onExplain: (Explanation) -> Unit, onHide: () -> Unit) {
     if (bias == null || bias.lean == TimingBias.Lean.EVEN) return
     val early = bias.lean == TimingBias.Lean.EARLY
     val share = if (early) bias.fastShare else 1 - bias.fastShare
@@ -128,6 +132,9 @@ fun TimingAdvice(bias: TimingBias?, onExplain: (Explanation) -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
+            TextButton(onClick = onHide, modifier = Modifier.align(Alignment.End)) {
+                Text("Don't show this again", color = MaterialTheme.colorScheme.onErrorContainer)
+            }
         }
     }
 }

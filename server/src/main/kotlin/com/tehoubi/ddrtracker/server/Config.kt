@@ -9,6 +9,8 @@ data class ServerConfig(
     val maxPoolSize: Int = 10,
     /** Registrations allowed per client address per hour. */
     val registrationsPerHour: Int = 10,
+    /** Requests of any kind allowed per client address per minute. */
+    val requestsPerMinute: Int = 600,
 ) {
     companion object {
         fun fromEnv(env: Map<String, String> = System.getenv()) = ServerConfig(
@@ -18,6 +20,7 @@ data class ServerConfig(
             databasePassword = env["DATABASE_PASSWORD"] ?: ServerConfig().databasePassword,
             maxPoolSize = env["DATABASE_POOL_SIZE"]?.toInt() ?: 10,
             registrationsPerHour = env["REGISTRATIONS_PER_HOUR"]?.toInt() ?: 10,
+            requestsPerMinute = env["REQUESTS_PER_MINUTE"]?.toInt() ?: 600,
         )
     }
 }

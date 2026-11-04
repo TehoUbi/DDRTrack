@@ -82,11 +82,11 @@ class OfflineFirstPlayRepository @Inject constructor(
     }
 
     /**
-     * Applies plays pulled from the cloud. A remote row wins only if it is
-     * newer than the local one; applied rows are already in the cloud, so
-     * they are not marked dirty again. Returns how many were applied.
+     * Applies plays restored from the account backup. A remote row wins only
+     * if it is newer than the local one; applied rows are already backed up,
+     * so they are not queued again. Returns how many were applied.
      */
-    suspend fun mergeFromCloud(remote: List<PlayEntity>): Int {
+    suspend fun mergeFromBackup(remote: List<PlayEntity>): Int {
         if (remote.isEmpty()) return 0
         var applied = 0
         db.withTransaction {
