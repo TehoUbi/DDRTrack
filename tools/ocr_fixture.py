@@ -4,10 +4,12 @@
     uv venv --python 3.12 .ocr && uv pip install --python .ocr/bin/python rapidocr-onnxruntime pillow
     .ocr/bin/python tools/ocr_fixture.py photo.jpg core/src/test/resources/realscreens/name
 
-ML Kit only runs on a phone, so the fixtures come from RapidOCR (the PP-OCR
-models on onnxruntime), which fails in similar ways: small isolated digits
-go missing, stylised labels come back as "MOTS" or "iss", and stacked
-single digits get merged. That is what the parser has to survive.
+The fixtures come from RapidOCR (an older PP-OCR on onnxruntime). The app
+now reads photos with PP-OCRv6 itself (see the :ocr module, whose tests read
+the photos directly); these saved readings keep the parser tested on real
+OCR failures without the models: small isolated digits go missing,
+stylised labels come back as "MOTS" or "iss", and stacked single digits get
+merged.
 
 Writes two files, mirroring the app's two-pass scan:
   name.json        the whole photo, long side scaled to 2560 px

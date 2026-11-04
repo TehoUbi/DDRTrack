@@ -78,6 +78,26 @@ data class ParsedResult(
         miss = stats[StatLabel.MISS]?.value ?: 0,
     )
 
+    /**
+     * This reading, with whatever it lacks taken from [other]. For a
+     * full-resolution still backed by live preview frames: the still is the
+     * better read of everything it saw (and the only one that reads Japanese
+     * titles), so the frames only fill gaps rather than outvote it.
+     */
+    fun withGapsFrom(other: ParsedResult): ParsedResult = copy(
+        title = title ?: other.title,
+        artist = artist ?: other.artist,
+        style = style ?: other.style,
+        difficulty = difficulty ?: other.difficulty,
+        level = level ?: other.level,
+        score = score ?: other.score,
+        stats = other.stats + stats,
+        grade = grade ?: other.grade,
+        lamp = lamp ?: other.lamp,
+        comboTotal = comboTotal ?: other.comboTotal,
+        labelsSeen = labelsSeen + other.labelsSeen,
+    )
+
     /** Fields the user will have to fill in by hand. */
     fun missingFields(): List<String> = buildList {
         if (title == null) add("title")

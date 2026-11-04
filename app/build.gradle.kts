@@ -27,6 +27,21 @@ android {
         versionCode = 2
         versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ONNX Runtime is ~35 MB of native code per ABI. 64-bit ARM covers
+        // phones (32-bit-only ones are too slow for the OCR model anyway) and
+        // x86_64 covers the emulator.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    // Compress the native libraries in the APK (extracted on install): the
+    // APK is shared as a file, so its size matters more than install time.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 
     // Release signing comes from keystore.properties (gitignored) when it
@@ -64,6 +79,12 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    // The PP-OCR models, read from assets at their full size on first scan.
+    sourceSets["main"].assets.srcDir(rootProject.file("ocr/models"))
+    androidResources {
+        noCompress += "onnx"
+    }
 }
 
 // Unit and screenshot tests don't depend on the build type, and the
@@ -75,6 +96,8 @@ androidComponents {
     }
 }
 
+tasks.named("preBuild") { dependsOn(":ocr:downloadOcrModels") }
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
@@ -85,6 +108,7 @@ roborazzi {
 
 dependencies {
     implementation(project(":core"))
+    implementation(project(":ocr"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -105,10 +129,11 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
 
-    // ML Kit OCR
+    // OCR. Photos are read by PP-OCRv6 on ONNX Runtime (the :ocr module),
+    // which reads Japanese titles as well as Latin; ML Kit's fast Latin
+    // model only watches the live preview to decide when to take the photo.
+    implementation(libs.onnxruntime.android)
     implementation(libs.mlkit.text.recognition)
-    // Many DDR titles are Japanese; this model reads kana/kanji as well as Latin.
-    implementation(libs.mlkit.text.recognition.japanese)
 
     // Firebase
     implementation(platform(libs.firebase.bom))

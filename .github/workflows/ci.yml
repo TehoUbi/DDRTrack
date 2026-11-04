@@ -42,7 +42,8 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - run: ./gradlew :app:testDebugUnitTest :app:verifyRoborazziDebug :app:assembleDebug
+      # :ocr downloads the PP-OCR models; its photo tests run when samples/ has the photos.
+      - run: ./gradlew :ocr:test :app:testDebugUnitTest :app:verifyRoborazziDebug :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: ddr-tracker-debug-apk

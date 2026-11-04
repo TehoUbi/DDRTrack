@@ -20,11 +20,13 @@ single-digit misreads. You confirm, and the play is saved.
 
 ## Features
 
-- **Scan result screens.** Uses CameraX with on-device ML Kit OCR, so
-  nothing leaves the phone. Each preview frame gets a blur, glare and
-  exposure check, and readings are voted on across frames. The photo is
-  taken automatically once score and judgments settle. Screenshots can
-  also be imported from the gallery.
+- **Scan result screens.** Uses CameraX and on-device OCR, so nothing
+  leaves the phone. The photo is read with PaddleOCR's PP-OCRv6 models on
+  ONNX Runtime, which read Japanese titles (kana and kanji) as well as
+  Latin. While you line up the shot, ML Kit watches the preview: each frame
+  gets a blur, glare and exposure check, and the photo is taken
+  automatically once score and judgments settle. Screenshots can also be
+  imported from the gallery.
 - **Check and repair scans.** EX score and money score are both computed
   from the judgments, so a misread digit shows up as a contradiction. The
   app tries the usual OCR digit confusions (5/8, 0/8, 3/8, 1/7, …) and
@@ -51,8 +53,10 @@ single-digit misreads. You confirm, and the play is saved.
 ```mermaid
 flowchart LR
     subgraph Phone["Android app (Kotlin, Jetpack Compose)"]
-        CAM[CameraX preview + capture] --> MLK[ML Kit text recognition]
-        MLK --> CORE["core: parse → cross-check → repair"]
+        CAM[CameraX preview] --> MLK[ML Kit: when to shoot]
+        CAM --> PHOTO[Photo] --> PPOCR["ocr: PP-OCRv6 on ONNX Runtime"]
+        PPOCR --> CORE["core: parse → cross-check → repair"]
+        MLK --> CORE
         CORE --> REVIEW[Review form]
         REVIEW --> ROOM[(Room: plays, sessions)]
         ROOM --> UI[Home / History / Progress / Compare]
@@ -64,12 +68,13 @@ flowchart LR
     UI -- leaderboards, rivals --> API
 ```
 
-Three Gradle modules:
+Four Gradle modules:
 
 | Module | What it is |
 |---|---|
 | `:core` | Plain Kotlin, no Android types: DDR scoring rules, the OCR result parser, scan validation and repair, frame-quality checks, multi-frame voting, song catalog and matching, sessions and progress statistics, and the leaderboard API models. Unit-tested on the JVM. |
-| `:app` | The Android app: Compose UI, CameraX, ML Kit, Room, DataStore, Hilt, WorkManager, Firebase, OkHttp. |
+| `:ocr` | Plain Kotlin: the PP-OCRv6 text detector and recogniser on ONNX Runtime, and the sequence of reads that turns a photo into a parse. The same code runs on the phone and in tests against photos of real screens. |
+| `:app` | The Android app: Compose UI, CameraX, ML Kit (live preview), Room, DataStore, Hilt, WorkManager, Firebase, OkHttp. |
 | `:server` | The leaderboard service: Ktor, PostgreSQL through HikariCP and plain SQL, Flyway migrations. |
 
 Room is the source of truth on the phone. Firestore is a per-player
@@ -85,12 +90,15 @@ players' bests for head-to-heads.
    against the sharpest recent frame (a usable absolute threshold depends
    on the scene); the share of blown-out pixels for glare; mean luminance
    for exposure. These set hints and vote weights and never block a frame.
-2. **OCR.** ML Kit's bundled Latin model on the 1080p analysis stream at
-   about 3 fps. The still is read twice: once downscaled, to find the
-   stats panel, then the panel alone, cropped from the full-resolution
-   photo. Those digits are the smallest text on screen and the first to go
-   missing. The title band is read with the Japanese model when the Latin
-   read of it looks unreliable.
+2. **OCR.** Live frames: ML Kit's Latin model on the 1080p analysis
+   stream at about 3 fps, only to decide when to take the photo. The photo
+   (`ocr/ResultScreenReader`): PaddleOCR's PP-OCRv6 detection and
+   recognition models on ONNX Runtime (`ocr/PaddleOcr`), one model for
+   Japanese and Latin. It is read once downscaled to find things, then the
+   stats panel and the title band are cropped from the full-resolution
+   photo and read again, since those digits and kanji are the smallest text
+   on screen. If the style, difficulty or level is missing, the banner is
+   read again too.
 3. **Parse** (`core/ocr/ResultScreenParser`). Works on geometry, not plain
    text. Boxes are deskewed by the median text angle. Labels are fuzzy
    matched (with letter/digit look-alikes folded). The six judgment rows
@@ -98,11 +106,14 @@ players' bests for head-to-heads.
    recognised, and values are taken between the labels and the FAST/SLOW
    box, splitting stacked single digits. Also read: FAST/SLOW under their
    labels, "MAX COMBO 140 / 417" (combo and step total) and BEST SCORE.
-   The title is the title-over-artist pair below the difficulty banner,
-   or a catalog match.
+   The title is matched against the bundled list of about 1,500 DDR songs
+   (`songs.tsv`, from `tools/make_songlist.py`), preferring songs that have
+   the chart that was read at that level; otherwise it's the
+   title-over-artist pair below the difficulty banner.
 4. **Vote** (`core/vision/FieldConsensus`). A confidence-weighted mode per
-   field over the last eight frames. It locks when the score and all six
-   judgments have three agreeing frames with a 60% majority.
+   field over the last eight live frames. It locks when the score and all
+   six judgments have three agreeing frames with a 60% majority. The photo
+   then decides every field it read; the frames only fill in gaps.
 5. **Second pass.** If the still is inconsistent, it is OCR'd again in
    contrast-stretched grayscale (`OcrEnhance`) and the two readings are
    merged.
@@ -112,7 +123,8 @@ players' bests for head-to-heads.
    score follows exactly from the judgments (DDR's SN2 formula, in integer
    arithmetic). The lamp rules out whole judgment kinds. Unreadable counts
    are filled in when exactly one assignment fits, and a misread count is
-   corrected when exactly one fix explains the screen.
+   corrected when exactly one fix explains the screen. FAST + SLOW =
+   Perfect + Great + Good, so one gives the other.
 
 ## Data model
 
@@ -147,16 +159,20 @@ so retries and edits are idempotent), and the `personal_bests` view.
 ## Building
 
 Requirements: JDK 17 and the Android SDK (platform 35). The Gradle wrapper
-handles the rest.
+handles the rest. The first build downloads the PP-OCRv6 models (about
+30 MB, from RapidOCR's ModelScope mirror, SHA-256 checked) into
+`ocr/models/`.
 
 ```bash
 ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
-./gradlew test                      # core, app (Robolectric) and server suites
+./gradlew test                      # core, ocr, app (Robolectric) and server suites
 ./gradlew :app:verifyRoborazziDebug # screenshot tests (recordRoborazziDebug to update)
 ```
 
-The APK installs on Android 8.0+ (API 26). Scanning, history, progress,
-backup and restore all work with no server or Firebase project.
+The APK installs on Android 8.0+ (API 26) on 64-bit ARM phones and x86_64
+emulators. Reading a photo takes a few seconds on a recent phone. Scanning,
+history, progress, backup and restore all work with no server or Firebase
+project.
 
 ### Firebase (optional)
 
@@ -219,12 +235,15 @@ about three months of plays for **Settings → Restore from a file**.
   labels, look-alike digits, split separators, lamp text, two-player
   screens, wrapped titles), repair and the judgment solver, frame quality,
   frame voting, sessions and statistics, and submission rules.
-- `core` real screens (`core/src/test/resources/realscreens`): OCR of
-  photos of real WORLD result screens, made with `tools/ocr_fixture.py`.
-  ML Kit only runs on a phone, so these come from RapidOCR, which fails
-  the same ways (vanished digits, "SLOW" read as "MOTS", stacked digits
-  merged). Every screen has to come out exactly right, both single-pass
-  and with the panel re-read.
+- `core` real screens (`core/src/test/resources/realscreens`): saved OCR
+  of photos of real WORLD result screens, made with `tools/ocr_fixture.py`
+  (RapidOCR, an older PP-OCR), so the parser is tested on real OCR
+  failures (vanished digits, "SLOW" read as "MOTS", stacked digits merged)
+  without the models.
+- `ocr`: the photos in `samples/` read end to end, exactly as the app
+  reads them: same models, crops, parser and validator. Every field of
+  every screen has to come out right, Japanese titles included. Skipped
+  when the photos aren't there.
 - `app`: Room repository and session grouping, migrations, leaderboard
   upload against MockWebServer (including the edit-during-upload race),
   the HTTP client, review-form validation, filters, Firestore document
@@ -241,9 +260,10 @@ screenshots, uploads the debug APK and builds the server image.
 
 - OCR is tuned on the WORLD result layout (the Details tab). Other
   versions' layouts work only as far as their labels match.
-- Japanese titles depend on ML Kit's Japanese model reading the small
-  title text. When it can't, the title is flagged on the review screen
-  and needs typing.
+- Titles not in the bundled song list are taken as read and flagged for
+  checking. Songs newer than the list need `tools/make_songlist.py` run
+  again. On the review screen, Japanese titles can be found by their
+  romanized names ("buta thunder").
 - The result screen doesn't show N.G. (dropped freezes). The validator
   infers them from the score, but a scan can over-report a full combo on
   charts with freezes when the score check is inconclusive.

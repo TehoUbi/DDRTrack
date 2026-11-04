@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+Photos are read with a new OCR engine that reads Japanese titles.
+
+- Photos and screenshots are read with PaddleOCR's PP-OCRv6 models on
+  ONNX Runtime instead of ML Kit. One model reads kana, kanji and Latin,
+  so titles like 向日葵サンセット and ブタサンダー come out as written.
+  ML Kit still watches the live preview to decide when to take the photo.
+- The photo's reading now decides; live preview frames only fill in what
+  it couldn't read. Before, eight Latin-only preview frames could outvote
+  the photo, which is why Japanese titles never showed up.
+- The title band is read again at full resolution, and so is the
+  difficulty banner when "SINGLE" / "DOUBLE" or the level is missing.
+- The song list has every DDR song with its chart levels (about 1,500, up
+  from 93). A title is matched knowing which chart was read, and partly
+  read Japanese titles still match. Typing a romanized name finds the
+  Japanese title.
+- A missing FAST or SLOW count is worked out from the other
+  (FAST + SLOW = Perfect + Great + Good).
+- Fixes: a cabinet sticker saying "in the past" was read as the FAST
+  label; SLOW could take the Good count from the next column on a tilted
+  photo; "TRIP MACHINE" titles were thrown out as rival-list text.
+- The APK is built for arm64 phones and x86_64 emulators.
+
 ## 1.1.0 (2025-09-27)
 
 Scanning works on real DDR WORLD result screens.

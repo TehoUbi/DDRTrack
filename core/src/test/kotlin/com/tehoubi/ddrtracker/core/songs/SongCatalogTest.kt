@@ -1,5 +1,7 @@
 package com.tehoubi.ddrtracker.core.songs
 
+import com.tehoubi.ddrtracker.core.model.Difficulty
+import com.tehoubi.ddrtracker.core.model.PlayStyle
 import com.tehoubi.ddrtracker.core.ocr.Box
 import com.tehoubi.ddrtracker.core.ocr.OcrLine
 import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
@@ -16,7 +18,7 @@ class SongCatalogTest {
 
     @Test
     fun `bundled catalog loads`() {
-        assertTrue(catalog.size > 80)
+        assertTrue(catalog.size > 1500)
         assertNotNull(catalog.find("PARANOiA"))
     }
 
@@ -24,7 +26,8 @@ class SongCatalogTest {
     fun `ocr spellings find the right song`() {
         assertEquals("PARANOiA", catalog.bestMatch(listOf("PARANOIA"))?.song?.title)
         assertEquals("MAX 300", catalog.bestMatch(listOf("MAX 3OO"))?.song?.title)
-        assertEquals("Healing Vision ~Angelic mix~", catalog.bestMatch(listOf("Healing Vision Angelic mix"))?.song?.title)
+        // The game, and the catalog, use fullwidth tildes.
+        assertEquals("Healing Vision ～Angelic mix～", catalog.bestMatch(listOf("Healing Vision ~Angelic mix~"))?.song?.title)
         assertEquals("AM-3P", catalog.bestMatch(listOf("AM 3P"))?.song?.title)
         assertEquals("CANDY☆", catalog.bestMatch(listOf("CANDY*"))?.song?.title)
         assertEquals("Xepher", catalog.bestMatch(listOf("Xephar"))?.song?.title)
@@ -45,11 +48,35 @@ class SongCatalogTest {
 
     @Test
     fun `suggestions prefer prefixes`() {
-        val s = catalog.suggest("para").map { it.title }
-        assertEquals("PARANOiA", s.first())
-        val firstInfix = s.indexOf("Seta Para Cima↑↑")
-        assertTrue(firstInfix > 0)
-        assertTrue(s.take(firstInfix).all { it.lowercase().startsWith("para") })
+        val s = catalog.suggest("para", limit = 40).map { it.title }
+        assertTrue("PARANOiA" in s, s.toString())
+        assertTrue("Seta Para Cima↑↑" in s, s.toString())
+        val firstOther = s.indexOfFirst { !it.lowercase().startsWith("para") }
+        assertTrue(firstOther > 0 && s.drop(firstOther).none { it.lowercase().startsWith("para") }, s.toString())
+    }
+
+    @Test
+    fun `japanese titles are found by their romanized names`() {
+        assertTrue("向日葵サンセット" in catalog.suggest("himawari sun").map { it.title })
+        assertEquals("ブタサンダー", catalog.suggest("buta thunder").first().title)
+    }
+
+    @Test
+    fun `partly read japanese titles still match`() {
+        // Small kana are the first characters to go missing.
+        assertEquals("向日葵サンセット", catalog.bestMatch(listOf("向日葵サセ"))?.song?.title)
+        assertEquals("アイスクリームマジック", catalog.bestMatch(listOf("アイスクリーマック"))?.song?.title)
+    }
+
+    @Test
+    fun `the chart that was read picks between similar titles`() {
+        val ex = ChartHint(PlayStyle.SINGLE, Difficulty.EXPERT, 12)
+        // "PARANOiA" (ESP 11) and "PARANOIA EVOLUTION" (ESP 12) are both close to this misread.
+        assertEquals("PARANOIA EVOLUTION", catalog.bestMatch(listOf("PARANOIA EVOLUTI"), chart = ex)?.song?.title)
+        val scarlet = catalog.find("Scarlet Moon")!!
+        assertEquals(12, scarlet.level(PlayStyle.SINGLE, Difficulty.EXPERT))
+        assertEquals(null, scarlet.level(PlayStyle.SINGLE, Difficulty.CHALLENGE))
+        assertEquals(9, scarlet.level(PlayStyle.DOUBLE, Difficulty.DIFFICULT))
     }
 
     @Test
@@ -78,6 +105,6 @@ class SongCatalogTest {
         val wrapped = base.copy(lines = base.lines.filterNot { it.text == "Butterfly" || it.text == "SMiLE.dk" } +
             OcrLine.of("Healing Vision", Box(420, 40, 640, 76)) +
             OcrLine.of("~Angelic mix~", Box(420, 80, 620, 112)))
-        assertEquals("Healing Vision ~Angelic mix~", ResultScreenParser(catalog).parse(wrapped).title?.value)
+        assertEquals("Healing Vision ～Angelic mix～", ResultScreenParser(catalog).parse(wrapped).title?.value)
     }
 }

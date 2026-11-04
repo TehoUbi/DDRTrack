@@ -71,6 +71,21 @@ object ScanValidator {
             result = withValue(result, fix.first, fix.second)
         }
 
+        // FAST and SLOW split the timed judgments that weren't Marvelous
+        // (Perfect, Great, Good), so either one gives the other. The FAST
+        // count sits alone in a small box and is easy for OCR to miss.
+        if (result.hasAllJudgments) {
+            val timed = result.judgments().let { it.perfect + it.great + it.good }
+            val fast = result.stats[StatLabel.FAST]
+            val slow = result.stats[StatLabel.SLOW]
+            val known = fast ?: slow
+            val missing = if (fast == null) StatLabel.FAST else StatLabel.SLOW
+            if (known != null && (fast == null) != (slow == null) && timed - known.value >= 0) {
+                result = result.copy(stats = result.stats + (missing to Field(timed - known.value, known.confidence * 0.9f)))
+                inferred += missing.fieldName
+            }
+        }
+
         val issues = mutableListOf<ScanIssue>()
         result.missingFields().forEach { issues += ScanIssue(it, "Couldn't read $it", Severity.WARNING) }
 
@@ -144,7 +159,7 @@ object ScanValidator {
         if (inferred.isNotEmpty()) {
             issues += ScanIssue(
                 null,
-                "Couldn't read ${inferred.joinToString()}; worked out from the score, EX score and step count",
+                "Couldn't read ${inferred.joinToString()}; worked out from the other numbers on the screen",
                 Severity.INFO,
             )
         }

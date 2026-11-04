@@ -153,7 +153,7 @@ private fun ScanSummary(form: PlayForm) {
     val text = when {
         form.inferred.isNotEmpty() ->
             "Read the screen. ${form.inferred.size} small number${if (form.inferred.size > 1) "s were" else " was"} unreadable " +
-                "and worked out from the score, EX score and step count — they're highlighted."
+                "and worked out from the other numbers on the screen — they're highlighted."
         form.repaired.isNotEmpty() -> "Read the screen and corrected ${form.repaired.size} misread value${if (form.repaired.size > 1) "s" else ""}."
         flagged > 0 -> "Read the screen. $flagged field${if (flagged > 1) "s are" else " is"} highlighted — give them a look."
         else -> "Read the screen. Everything checks out."
@@ -296,7 +296,7 @@ private fun flagText(field: String, form: PlayForm, check: FormCheck): (@Composa
     val message = when {
         field in check.errors -> check.errors.getValue(field)
         field in form.repaired -> "Corrected from ${form.repaired.getValue(field)}"
-        field in form.inferred -> "Worked out from the score — check"
+        field in form.inferred -> "Worked out from the other numbers — check"
         field in form.lowConfidence -> "Low confidence — check this"
         else -> null
     }

@@ -122,4 +122,13 @@ class ScanValidatorTest {
         assertTrue(ok.none { it.severity >= Severity.WARNING }, ok.toString())
         assertTrue(ScanValidator.checkManual(j, 990_000, null, failed = false).any { it.field == "score" })
     }
+
+    @Test
+    fun `a missing FAST count is worked out from SLOW`() {
+        // Perfect + Great + Good = 12 timed judgments, 7 of them SLOW.
+        val parsed = ResultScreenParser().parse(butterflyPfc())
+        val c = ScanValidator.check(parsed.copy(stats = parsed.stats - StatLabel.FAST))
+        assertEquals(5, c.result.stats[StatLabel.FAST]?.value)
+        assertTrue("fast" in c.inferred)
+    }
 }

@@ -18,3 +18,6 @@ dist/
 # Roborazzi verify output
 *_actual.png
 *_compare.png
+
+# PP-OCR models, downloaded by :ocr:downloadOcrModels
+ocr/models/

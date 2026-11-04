@@ -146,6 +146,59 @@ class ResultScreenParserTest {
         assertFalse(r.looksLikeResultScreen)
         assertNull(r.score)
     }
+
+    @Test
+    fun `a sticker saying "past" doesn't take FAST's place`() {
+        // Cabinets carry a seizure warning: "...loss of consciousness in the past".
+        val base = butterflyPfc()
+        val sticker = OcrLine.of("in the past 3", Box(900, 690, 1120, 712))
+        val r = parser.parse(base.copy(lines = listOf(sticker) + base.lines))
+        assertEquals(5, r.stats[StatLabel.FAST]?.value)
+    }
+
+    @Test
+    fun `titles with words from the rival list are still titles`() {
+        val base = butterflyPfc()
+        val p = base.copy(lines = base.lines.map {
+            when (it.text) {
+                "Butterfly" -> OcrLine.of("TRIP MACHINE EVOLUTION", it.box)
+                "SMiLE.dk" -> OcrLine.of("DE-JAVU", it.box)
+                else -> it
+            }
+        })
+        assertEquals("TRIP MACHINE EVOLUTION", parser.parse(p).title?.value)
+    }
+
+    @Test
+    fun `the chart banner region takes in the style words beside it`() {
+        val region = parser.chartRegion(butterflyPfc())!!
+        assertTrue(region.left < 420 - 28) // room left of "EXPERT" for SINGLE / STYLE
+        assertTrue(region.contains(568f, 154f)) // the level
+        assertFalse(region.contains(500f, 400f)) // the table
+    }
+}
+
+class GapFillTest {
+    @Test
+    fun `a still keeps what it read and takes only what it lacks`() {
+        val still = ParsedResult(
+            title = Field("向日葵サンセット", 0.9f),
+            score = Field(991_280, 0.95f),
+            stats = mapOf(StatLabel.MARVELOUS to Field(252, 0.9f)),
+        )
+        val live = ParsedResult(
+            title = Field("ARM", 0.99f),
+            score = Field(991_230, 0.99f),
+            level = Field(13, 0.8f),
+            stats = mapOf(StatLabel.MARVELOUS to Field(262, 0.99f), StatLabel.PERFECT to Field(80, 0.9f)),
+        )
+        val r = still.withGapsFrom(live)
+        assertEquals("向日葵サンセット", r.title?.value)
+        assertEquals(991_280, r.score?.value)
+        assertEquals(13, r.level?.value)
+        assertEquals(252, r.stats[StatLabel.MARVELOUS]?.value)
+        assertEquals(80, r.stats[StatLabel.PERFECT]?.value)
+    }
 }
 
 class WideTableTest {

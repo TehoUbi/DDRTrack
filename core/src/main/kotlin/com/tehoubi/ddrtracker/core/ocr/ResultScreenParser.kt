@@ -8,6 +8,7 @@ import com.tehoubi.ddrtracker.core.model.PlayStyle
 import com.tehoubi.ddrtracker.core.ocr.TextMatching.labelKey
 import com.tehoubi.ddrtracker.core.ocr.TextMatching.levenshtein
 import com.tehoubi.ddrtracker.core.ocr.TextMatching.tolerance
+import com.tehoubi.ddrtracker.core.songs.ChartHint
 import com.tehoubi.ddrtracker.core.songs.SongCatalog
 import kotlin.math.abs
 import kotlin.math.pow
@@ -105,6 +106,18 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         return Box(0, banner, page.width, bottom).clampTo(page)
     }
 
+    /**
+     * The "SINGLE STYLE Expert 12" banner, with room for the small style
+     * words stacked at its left, for a full-resolution read: in a photo of
+     * the whole cabinet those words are only a few pixels tall. Null if the
+     * difficulty wasn't found.
+     */
+    fun chartRegion(page: OcrPage): Box? {
+        val banner = findChart(deskew(page).lines).bannerBox ?: return null
+        val h = banner.height
+        return Box(banner.left - h * 2, banner.top - h, banner.right + h, banner.bottom + h / 2).clampTo(page)
+    }
+
     private fun Box.clampTo(page: OcrPage) =
         Box(left.coerceAtLeast(0), top.coerceAtLeast(0), right.coerceAtMost(page.width), bottom.coerceAtMost(page.height))
 
@@ -188,7 +201,8 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         stats.remove(StatLabel.SCORE)
         val chart = findChart(lines)
         val lampAndGrade = findLampAndGrade(lines)
-        val title = findTitle(page.copy(lines = lines), hits, chart.bannerBottom)
+        val hint = chart.difficulty?.let { d -> chart.level?.let { l -> ChartHint(chart.style?.value, d.value, l.value) } }
+        val title = findTitle(page.copy(lines = lines), hits, chart.bannerBottom, hint)
 
         return ParsedResult(
             title = title?.first,
@@ -255,10 +269,22 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
             n !in used && n.digits.length <= 4 &&
                 n.box.top >= label.top + label.height / 2 && n.box.top - label.bottom < rowHeight * 1.6f &&
                 n.box.centerX >= label.left - rowHeight && n.box.centerX <= label.right + rowHeight
-        }.minByOrNull { it.box.top }
+        }.minByOrNull { abs(it.box.centerX - label.centerX) + (it.box.top - label.bottom).coerceAtLeast(0) }
 
-        val fast = hits.firstOrNull { it.label == StatLabel.FAST }
-        val slow = hits.firstOrNull { it.label == StatLabel.SLOW }
+        // Cabinet stickers say things like "in the past"; the real labels sit
+        // within the judgment rows, just right of them.
+        val judgments = hits.filter { it.label.isJudgment }
+        fun nearestToTable(label: StatLabel): LabelHit? {
+            val candidates = hits.filter { it.label == label }
+            if (judgments.isEmpty()) return candidates.firstOrNull()
+            val top = judgments.minOf { it.box.top } - rowHeight
+            val bottom = judgments.maxOf { it.box.bottom } + rowHeight
+            val right = judgments.maxOf { it.box.right }
+            return candidates.filter { it.box.centerY in top.toFloat()..bottom.toFloat() }
+                .minByOrNull { abs(it.box.left - right) }
+        }
+        val fast = nearestToTable(StatLabel.FAST)
+        val slow = nearestToTable(StatLabel.SLOW)
         for (hit in listOfNotNull(fast, slow)) {
             val n = below(hit.box) ?: rightOf(hit, tokens, used, maxDigits = 4, maxGap = rowHeight * 3f)?.first ?: continue
             used += n
@@ -500,9 +526,11 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         val style: Field<PlayStyle>?,
         val difficulty: Field<Difficulty>?,
         val level: Field<Int>?,
-        /** Bottom of the "SINGLE STYLE Expert 12" banner; the song title sits below it on WORLD. */
-        val bannerBottom: Int?,
-    )
+        /** The line holding the difficulty ("SINGLE STYLE Expert 12"); the song title sits below it on WORLD. */
+        val bannerBox: Box?,
+    ) {
+        val bannerBottom: Int? get() = bannerBox?.bottom
+    }
 
     private val styleWords = mapOf(
         "SINGLE" to PlayStyle.SINGLE, "SP" to PlayStyle.SINGLE,
@@ -513,7 +541,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         var difficulty: Field<Difficulty>? = null
         var level: Field<Int>? = null
         var style: Field<PlayStyle>? = null
-        var bannerBottom: Int? = null
+        var bannerBox: Box? = null
 
         for ((idx, line) in lines.withIndex()) {
             line.elements.forEachIndexed { i, el ->
@@ -528,7 +556,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
                     levenshtein(wordPart, d.name) <= tolerance(d.name.length)
                 } ?: return@forEachIndexed
                 difficulty = Field(match, el.confidence * if (wordPart == match.name) 1f else 0.85f)
-                bannerBottom = line.box.bottom
+                bannerBox = line.box
 
                 val levelText = fused?.groupValues?.get(2)
                     ?: line.elements.drop(i + 1).firstNotNullOfOrNull { Numbers.read(it.text, lenient = true)?.digits }
@@ -538,7 +566,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
                 }
             }
         }
-        return ChartFields(style, difficulty, level, bannerBottom)
+        return ChartFields(style, difficulty, level, bannerBox)
     }
 
     /** A 1-2 digit number on the same row as, or just below, the difficulty name. */
@@ -593,12 +621,16 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
 
     // --- Title ------------------------------------------------------------
 
-    /** Text on and around a result screen that is never a song title. */
+    /**
+     * Text on and around a result screen that is never a song title. Kept
+     * specific: "MACHINE #1" from the rival list, not "MACHINE", which is in
+     * TRIP MACHINE.
+     */
     private val notTitleParts = listOf(
         "RESULT", "STAGE", "RECORD", "DANCEDANCE", "DANCEIDANCE", "REVOLUTION", "KONAMI", "BEMANI", "AMUSEMENT",
         "EXTRASTAR", "SIMPLERESULT", "DETAILS", "PLAYGRAPH", "FLARE", "ENERGY", "CALORIE", "CHECKYOUR",
         "SWITCHTABS", "BUTTONS", "ONLINE", "CREDIT", "FULLCOMBO", "FULCOMBO", "HEREWEGO", "CAUTION",
-        "COPYRIGHT", "PLAYDATA", "PRESSSTART", "HIGHSCORE", "RIVAL", "MACHINE", "TOTAL", "PLAYER", "CLEARED",
+        "COPYRIGHT", "PLAYDATA", "PRESSSTART", "HIGHSCORE", "RIVAL", "MACHINEI", "TOTAL", "PLAYER", "CLEARED",
     )
 
     private fun isNotTitle(text: String): Boolean {
@@ -619,7 +651,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
      * low-confidence guess, flagged for the player to check. A catalog match
      * beats both.
      */
-    private fun findTitle(page: OcrPage, hits: List<LabelHit>, bannerBottom: Int?): Pair<Field<String>, Field<String>?>? {
+    private fun findTitle(page: OcrPage, hits: List<LabelHit>, bannerBottom: Int?, chart: ChartHint?): Pair<Field<String>, Field<String>?>? {
         val labelLines = hits.map { it.lineIndex }.toSet()
         // The details panel's tab row ("Simple result", "Details", "Play Graph")
         // or else the table itself bounds the title from below.
@@ -645,7 +677,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
         }
         if (candidates.isEmpty()) return null
 
-        catalog?.let { matchCatalog(it, candidates) }?.let { (line, field) ->
+        catalog?.let { matchCatalog(it, candidates, chart) }?.let { (line, field) ->
             return field to artistUnder(line, candidates)?.let { Field(it.text.trim(), it.confidence * 0.75f) }
         }
 
@@ -676,7 +708,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
      * wrap, against the catalog. Pairs go first so "Healing Vision" over
      * "~Angelic mix~" resolves to the full title rather than its prefix.
      */
-    private fun matchCatalog(catalog: SongCatalog, ranked: List<OcrLine>): Pair<OcrLine, Field<String>>? {
+    private fun matchCatalog(catalog: SongCatalog, ranked: List<OcrLine>, chart: ChartHint?): Pair<OcrLine, Field<String>>? {
         val texts = buildList {
             for (a in ranked) for (b in ranked) {
                 if (a !== b && b.box.top > a.box.top && b.box.top - a.box.bottom < a.box.height &&
@@ -685,7 +717,7 @@ class ResultScreenParser(private val catalog: SongCatalog? = null) {
             }
             ranked.forEach { add(it to it.text) }
         }
-        val match = catalog.bestMatch(texts.map { it.second }) ?: return null
+        val match = catalog.bestMatch(texts.map { it.second }, chart = chart) ?: return null
         val line = texts.first { it.second == match.matchedText }.first
         return line to Field(match.song.title, (line.confidence * match.similarity).coerceIn(0f, 1f))
     }

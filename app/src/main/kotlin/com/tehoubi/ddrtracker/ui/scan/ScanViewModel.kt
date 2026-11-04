@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tehoubi.ddrtracker.core.ocr.Box
+import com.tehoubi.ddrtracker.core.ocr.CheckedScan
 import com.tehoubi.ddrtracker.core.ocr.ParsedResult
 import com.tehoubi.ddrtracker.core.ocr.ResultScreenParser
 import com.tehoubi.ddrtracker.core.ocr.ScanValidator
@@ -76,6 +77,7 @@ class ScanViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { catalogs.catalog.collect { parser = ResultScreenParser(it) } }
+        viewModelScope.launch { runCatching { pipeline.warmUp() } }
     }
 
     /** Called from the analysis thread for each analysed preview frame. */
@@ -125,21 +127,36 @@ class ScanViewModel @Inject constructor(
             _uiState.update { it.copy(isProcessing = true, message = null) }
             runCatching { pipeline.run(bitmap, rotationDegrees) }
                 .onSuccess { (page, checked) ->
-                    // The still has the most pixels, so it gets a double vote,
-                    // but the live frames can still outvote one bad read.
-                    consensus.add(checked.result, weight = 2f)
-                    val merged = if (consensus.frameCount > 0) consensus.current() else checked.result
-                    if (!merged.looksLikeResultScreen) {
+                    val merged = withLiveFrames(checked)
+                    if (!merged.result.looksLikeResultScreen) {
                         fail("That doesn't look like a result screen. Try again closer.")
                         return@launch
                     }
-                    drafts.put(ScanDraft(ScanValidator.check(merged), PlaySource.CAMERA, Instant.now(clock), page.text))
+                    drafts.put(ScanDraft(merged, PlaySource.CAMERA, Instant.now(clock), page.text))
                     consensus.reset()
                     _uiState.value = ScanUiState()
                     _events.send(ScanEvent.OpenReview)
                 }
                 .onFailure { fail("Text recognition failed: ${it.message}") }
         }
+    }
+
+    /**
+     * The still, read at full resolution by the stronger model, decides; the
+     * live frames only fill in what it couldn't read. Letting them vote
+     * against it (as before) let eight Latin-only preview frames outvote a
+     * Japanese title. Only if that doesn't add up and a vote across all of
+     * them does is the vote used, still with the photo's title.
+     */
+    private fun withLiveFrames(still: CheckedScan): CheckedScan {
+        if (consensus.frameCount == 0) return still
+        // Already checked: keep its repairs and worked-out values as they are.
+        if (still.isConsistent) return still.copy(result = still.result.withGapsFrom(consensus.current()))
+        val filled = ScanValidator.check(still.result.withGapsFrom(consensus.current()))
+        if (filled.isConsistent) return filled
+        consensus.add(still.result, weight = 2f)
+        val voted = consensus.current().let { it.copy(title = still.result.title ?: it.title, artist = still.result.artist ?: it.artist) }
+        return ScanValidator.check(voted).takeIf { it.isConsistent } ?: filled
     }
 
     /** A screenshot or photo picked from the gallery: no live frames to vote with. */
