@@ -1,7 +1,10 @@
 # DDR Performance Tracker
 
-**Hosting notice:** I am no longer hosting servers for this app. Instructions
-for running your own server are below in [Leaderboard server (optional)](#leaderboard-server-optional).
+**Download:** the APK is on the [Releases page](https://github.com/TehoUbi/DDRTrack/releases/latest)
+(Android 8.0+, 64-bit ARM). Scanning, history and progress work offline
+with no account. Leaderboards, rival comparison and account backup talk to
+a server you run yourself, with one command: see
+[Leaderboard server (optional)](#leaderboard-server-optional).
 
 An Android app that reads Dance Dance Revolution result screens with the
 phone camera, logs every play, tracks progress across sessions, and
@@ -11,6 +14,11 @@ Point the camera at the cabinet after a song. The app reads the screen
 live, frame by frame, and takes a photo once the score and judgments agree
 across frames. It checks the numbers against DDR's scoring rules and fixes
 single-digit misreads. You confirm, and the play is saved.
+
+<p align="center"><img src="docs/scan.gif" width="360" alt="The OCR pipeline reading a real result screen: text lines found, the stats panel re-read, the numbers checked"></p>
+
+*(The real pipeline reading `samples/sample1.jpg`; every box and number in it
+comes from that run. Rendered by `ScanGif.kt` in the `:ocr` tests.)*
 
 | Home | Progress | Chart + leaderboard | Scan review | Player |
 |---|---|---|---|---|
@@ -182,7 +190,9 @@ handles the rest. The first build downloads the PP-OCRv6 models (about
 ```
 
 The APK installs on Android 8.0+ (API 26) on 64-bit ARM phones and x86_64
-emulators. Reading a photo takes a few seconds on a recent phone. Scanning,
+emulators. Reading a photo is a few seconds of CPU work, most of it in
+the two neural networks; judge speed on a release build, since debug builds
+run the Kotlin image code much slower. Scanning,
 history, progress, song search, and file backup and restore all work with
 no server.
 
