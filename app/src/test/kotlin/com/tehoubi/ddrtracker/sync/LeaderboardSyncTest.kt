@@ -21,9 +21,12 @@ import com.tehoubi.ddrtracker.domain.model.PlaySource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Rule
 import org.junit.Test
@@ -33,9 +36,12 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -46,7 +52,7 @@ class LeaderboardSyncTest {
     private val server = MockWebServer().apply { start() }
     private val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), DdrDatabase::class.java)
         .allowMainThreadQueries().build()
-    private val clock = Clock.fixed(Instant.parse("2026-05-13T04:00:00Z"), ZoneOffset.UTC)
+    private val clock = MovableClock(Instant.parse("2026-05-13T04:00:00Z"))
     private val settings by lazy {
         SettingsRepository(
             PreferenceDataStoreFactory.create(scope = CoroutineScope(Dispatchers.IO + SupervisorJob())) {
@@ -133,11 +139,37 @@ class LeaderboardSyncTest {
     fun `an edit during upload is uploaded again`() = runTest {
         signIn()
         repo.savePlay(play("a"))
-        server.enqueue(MockResponse().setBody("""{"accepted":["a"],"rejected":[]}""").setBodyDelay(0, java.util.concurrent.TimeUnit.MILLISECONDS))
-        // Simulate the edit landing between read and status update by bumping updated_at first.
-        val entity = db.playDao().getById("a")!!
-        db.playDao().upsert(entity.copy(updatedAt = entity.updatedAt + 1))
-        db.playDao().setLeaderboardStatus("a", entity.updatedAt, LeaderboardStatus.SUBMITTED, null)
+        var posts = 0
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (++posts == 1) {
+                    // The player fixes the max combo while the first upload is in flight.
+                    clock.advance(Duration.ofSeconds(1))
+                    runBlocking { repo.savePlay(play("a").copy(maxCombo = 400)) }
+                }
+                return MockResponse().setBody("""{"accepted":["a"],"rejected":[]}""")
+            }
+        }
+
+        // The server accepted the old version, but the row changed under the
+        // upload, so it stays pending instead of being marked submitted.
+        assertEquals(1, sync.run().uploaded)
         assertEquals(LeaderboardStatus.PENDING, db.playDao().getById("a")!!.leaderboardStatus)
+
+        // The next run sends the edited play, and only then is it submitted.
+        assertEquals(1, sync.run().uploaded)
+        assertEquals(2, posts)
+        server.takeRequest()
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"maxCombo\":400"))
+        assertEquals(LeaderboardStatus.SUBMITTED, db.playDao().getById("a")!!.leaderboardStatus)
+    }
+
+    /** A clock the test can move forward, so an edit gets a later updated_at than the upload read. */
+    private class MovableClock(private var now: Instant) : Clock() {
+        fun advance(by: Duration) { now = now.plus(by) }
+        override fun instant(): Instant = now
+        override fun millis(): Long = now.toEpochMilli()
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+        override fun withZone(zone: ZoneId): Clock = this
     }
 }
