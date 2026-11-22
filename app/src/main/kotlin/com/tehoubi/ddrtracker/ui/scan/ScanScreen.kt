@@ -170,7 +170,9 @@ private fun LiveCamera(viewModel: ScanViewModel, onReview: () -> Unit, uiState: 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
-    val analyzer = remember { LiveTextAnalyzer(onFrame = viewModel::onLiveFrame) }
+    // The still is decoded here, not on the main thread: a 12-50 MP JPEG takes a while.
+    val captureExecutor = remember { Executors.newSingleThreadExecutor() }
+    val analyzer = remember { LiveTextAnalyzer(isPaused = viewModel::isBusy, onFrame = viewModel::onLiveFrame) }
     val controller = remember {
         LifecycleCameraController(context).apply {
             setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
@@ -193,12 +195,13 @@ private fun LiveCamera(viewModel: ScanViewModel, onReview: () -> Unit, uiState: 
             controller.unbind()
             analyzer.close()
             analysisExecutor.shutdown()
+            captureExecutor.shutdown()
         }
     }
 
     val takeStill by rememberUpdatedState {
         controller.takePicture(
-            ContextCompat.getMainExecutor(context),
+            captureExecutor,
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     val rotation = image.imageInfo.rotationDegrees

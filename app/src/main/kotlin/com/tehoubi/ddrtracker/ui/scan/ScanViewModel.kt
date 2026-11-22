@@ -80,10 +80,12 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch { runCatching { pipeline.warmUp() } }
     }
 
+    /** True while a photo is being taken or read; live frames are skipped meanwhile. */
+    fun isBusy(): Boolean = _uiState.value.let { it.isProcessing || it.phase == LivePhase.CAPTURING }
+
     /** Called from the analysis thread for each analysed preview frame. */
     fun onLiveFrame(frame: LiveFrame) {
-        val state = _uiState.value
-        if (state.isProcessing || state.phase == LivePhase.CAPTURING) return
+        if (isBusy()) return
         val page = frame.page
         val parsed = page?.let { parser.parse(it, side.value) }
         if (parsed != null) consensus.add(parsed, frame.quality.weight)
@@ -121,7 +123,7 @@ class ScanViewModel @Inject constructor(
         _events.trySend(ScanEvent.TakeStill)
     }
 
-    /** A full-resolution still, from the shutter button or an auto-capture. */
+    /** A full-resolution still, from the shutter button or an auto-capture. Called off the main thread. */
     fun onPhotoCaptured(bitmap: Bitmap, rotationDegrees: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, message = null) }

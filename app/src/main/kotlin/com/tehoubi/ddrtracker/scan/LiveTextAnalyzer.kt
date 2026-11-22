@@ -30,9 +30,13 @@ data class LiveFrame(val page: OcrPage?, val quality: FrameQuality.Report)
  *
  * Uses STRATEGY_KEEP_ONLY_LATEST upstream, so a slow OCR pass drops frames
  * rather than queueing them; the frame is closed only once ML Kit is done.
+ *
+ * While [isPaused] is true (the photo is being read), frames are dropped
+ * unread: the photo's read needs every core, and nothing would use the result.
  */
 class LiveTextAnalyzer(
     private val intervalMs: Long = 350,
+    private val isPaused: () -> Boolean = { false },
     private val onFrame: (LiveFrame) -> Unit,
 ) : ImageAnalysis.Analyzer {
 
@@ -45,7 +49,7 @@ class LiveTextAnalyzer(
     override fun analyze(image: ImageProxy) {
         val now = SystemClock.elapsedRealtime()
         val media = image.image
-        if (media == null || now - lastRun < intervalMs) {
+        if (media == null || now - lastRun < intervalMs || isPaused()) {
             image.close()
             return
         }
