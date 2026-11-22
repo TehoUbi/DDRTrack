@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.1 (2026-11-22)
+
+Faster photo reading, with exactly the same results.
+
+- The image code around the OCR models does much less work per photo: the
+  character decoder stops at the first character it is sure of instead of
+  scoring all 18,710 every step, resizing works out each output pixel's
+  footprint once per row and column instead of per pixel, straightening a
+  text line no longer allocates per pixel, and the recogniser's output
+  (tens of MB per batch) is copied once instead of twice. On the five real photos in
+  `samples/` every line of text, every field and every confidence comes out
+  identical. With the JIT off, a stand-in for slow phone runtimes, the
+  same five photos take about half the time.
+- The live preview stops running ML Kit while the photo is being read, so
+  the read doesn't compete with it for the CPU.
+- The photo is decoded off the main thread, so the screen doesn't freeze
+  after the shutter.
+- Releases are built by CI from a version tag and published with the APK.
+
 ## 1.2.0 (2026-11-04)
 
 Japanese titles, a new OCR engine, player pages, and your log backed up to
