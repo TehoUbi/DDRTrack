@@ -52,6 +52,8 @@ class SongCatalog(songs: Collection<Song>) {
 
     private val entries: List<Pair<Song, String>> =
         songs.distinctBy { it.key }.map { it to matchKey(it.title) }.filter { it.second.isNotEmpty() }
+    /** Each title key's trigram counts, worked out once rather than on every comparison. */
+    private val entryGrams: List<Grams> = entries.map { Grams.of(it.second) }
     private val aliasKeys: Map<Song, List<String>> =
         entries.associate { (song, _) -> song to song.aliases.map(::matchKey).filter { it.isNotEmpty() } }
 
@@ -73,13 +75,28 @@ class SongCatalog(songs: Collection<Song>) {
      * misread title lands on the song that was actually played.
      */
     fun bestMatch(texts: List<String>, threshold: Float = DEFAULT_THRESHOLD, chart: ChartHint? = null): SongMatch? {
+        // One photo is parsed several times with the same lines, and live
+        // preview frames keep reading the same title, so recent answers are kept.
+        val request = MatchRequest(texts, threshold, chart)
+        synchronized(recent) { recent[request]?.let { return it.match } }
+        val match = search(texts, threshold, chart)
+        synchronized(recent) { recent[request] = Remembered(match) }
+        return match
+    }
+
+    private fun search(texts: List<String>, threshold: Float, chart: ChartHint?): SongMatch? {
         var best: SongMatch? = null
         var bestScore = 0f
         for (text in texts) {
             val key = matchKey(text)
             if (key.length < 2) continue
-            for ((song, songKey) in entries) {
-                val sim = similarity(key, songKey)
+            val grams = Grams.of(key)
+            for (i in entries.indices) {
+                val (song, songKey) = entries[i]
+                // Titles of very different lengths can't reach the threshold;
+                // skip them before the expensive comparisons.
+                if (upperBound(key, songKey, grams, entryGrams[i]) < threshold) continue
+                val sim = similarity(key, songKey, grams, entryGrams[i])
                 if (sim < threshold) continue
                 val score = sim * fit(song, chart)
                 if (best == null || score > bestScore) {
@@ -89,6 +106,13 @@ class SongCatalog(songs: Collection<Song>) {
             }
         }
         return best
+    }
+
+    private data class MatchRequest(val texts: List<String>, val threshold: Float, val chart: ChartHint?)
+    private class Remembered(val match: SongMatch?)
+
+    private val recent = object : LinkedHashMap<MatchRequest, Remembered>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<MatchRequest, Remembered>) = size > 64
     }
 
     /** 1 with no evidence either way; a little more when the chart fits, less when it can't be this song. */
@@ -161,10 +185,25 @@ class SongCatalog(songs: Collection<Song>) {
             }
         }
 
-        internal fun similarity(a: String, b: String): Float {
+        internal fun similarity(a: String, b: String): Float = similarity(a, b, Grams.of(a), Grams.of(b))
+
+        private fun similarity(a: String, b: String, ga: Grams, gb: Grams): Float {
             if (a == b) return 1f
             val edit = 1f - TextMatching.levenshtein(a, b) / max(a.length, b.length).toFloat()
-            return maxOf(edit, dice(a, b), subsequence(a, b))
+            return maxOf(edit, dice(ga, gb), subsequence(a, b))
+        }
+
+        /**
+         * At least [similarity], from the lengths alone: the same three
+         * formulas with the best case (every character or trigram of the
+         * shorter one matching) put in for what they count.
+         */
+        private fun upperBound(a: String, b: String, ga: Grams, gb: Grams): Float {
+            val shorter = min(a.length, b.length)
+            val edit = 1f - (max(a.length, b.length) - shorter) / max(a.length, b.length).toFloat()
+            val dice = 2f * min(ga.total, gb.total) / (ga.total + gb.total)
+            val subsequence = 2f * shorter / (a.length + b.length)
+            return maxOf(edit, dice, subsequence)
         }
 
         /**
@@ -185,16 +224,20 @@ class SongCatalog(songs: Collection<Song>) {
             return 2f * prev[b.length] / (a.length + b.length)
         }
 
-        private fun trigrams(s: String): List<String> {
-            val padded = "  $s "
-            return (0..padded.length - 3).map { padded.substring(it, it + 3) }
+        /** A key's trigrams (padded as "  key "), counted. */
+        private class Grams(val counts: Map<String, Int>, val total: Int) {
+            companion object {
+                fun of(s: String): Grams {
+                    val padded = "  $s "
+                    val counts = (0..padded.length - 3).map { padded.substring(it, it + 3) }.groupingBy { it }.eachCount()
+                    return Grams(counts, counts.values.sum())
+                }
+            }
         }
 
-        private fun dice(a: String, b: String): Float {
-            val ta = trigrams(a).groupingBy { it }.eachCount()
-            val tb = trigrams(b).groupingBy { it }.eachCount()
-            val shared = ta.entries.sumOf { (g, n) -> min(n, tb[g] ?: 0) }
-            return 2f * shared / (ta.values.sum() + tb.values.sum())
+        private fun dice(a: Grams, b: Grams): Float {
+            val shared = a.counts.entries.sumOf { (g, n) -> min(n, b.counts[g] ?: 0) }
+            return 2f * shared / (a.total + b.total)
         }
     }
 }

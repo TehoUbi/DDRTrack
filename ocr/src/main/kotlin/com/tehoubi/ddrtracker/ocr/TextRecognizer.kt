@@ -50,8 +50,9 @@ class TextRecognizer(
                     val result = out[0] as OnnxTensor
                     val dims = result.info.shape
                     val steps = dims[1].toInt(); val classes = dims[2].toInt()
-                    val buffer = result.floatBuffer
-                    val probs = FloatArray(buffer.remaining()).also { buffer.get(it) }
+                    // floatBuffer is already a copy; copying it again into an array would
+                    // move batch x steps x 18,710 floats (tens of MB) a second time.
+                    val probs = result.floatBuffer
                     batch.forEachIndexed { b, idx ->
                         results[idx] = decode(probs, b * steps * classes, steps, classes, width, contentWidths[b])
                     }
@@ -65,10 +66,23 @@ class TextRecognizer(
     private fun straighten(image: RgbImage, q: Quad): RgbImage {
         val w = max(1, q.width.roundToInt())
         val h = max(1, q.height.roundToInt())
+        // Quad.at(u, v), unrolled: the top and bottom edge points depend only
+        // on the column, so they are worked out once per column, not per pixel.
+        val topX = DoubleArray(w); val topY = DoubleArray(w)
+        val botX = DoubleArray(w); val botY = DoubleArray(w)
+        for (x in 0 until w) {
+            val u = (x + 0.5) / w
+            topX[x] = q.xs[0] + (q.xs[1] - q.xs[0]) * u; topY[x] = q.ys[0] + (q.ys[1] - q.ys[0]) * u
+            botX[x] = q.xs[3] + (q.xs[2] - q.xs[3]) * u; botY[x] = q.ys[3] + (q.ys[2] - q.ys[3]) * u
+        }
         val px = IntArray(w * h)
-        for (y in 0 until h) for (x in 0 until w) {
-            val (sx, sy) = q.at((x + 0.5) / w, (y + 0.5) / h)
-            px[y * w + x] = image.sample(sx - 0.5, sy - 0.5)
+        for (y in 0 until h) {
+            val v = (y + 0.5) / h
+            for (x in 0 until w) {
+                val sx = topX[x] + (botX[x] - topX[x]) * v
+                val sy = topY[x] + (botY[x] - topY[x]) * v
+                px[y * w + x] = image.sample(sx - 0.5, sy - 0.5)
+            }
         }
         val crop = RgbImage(w, h, px)
         return if (h >= w * 1.5) crop.rotated(-90) else crop
@@ -80,28 +94,39 @@ class TextRecognizer(
         val scaled = crop.resize(resizedW, IMAGE_H)
         val plane = IMAGE_H * width
         val base = b * 3 * plane
+        val unit = UNIT_RANGE
         for (y in 0 until IMAGE_H) for (x in 0 until resizedW) {
             val p = scaled.argb[y * resizedW + x]
             val i = y * width + x
-            data[base + i] = (p and 0xFF) / 127.5f - 1f
-            data[base + plane + i] = ((p shr 8) and 0xFF) / 127.5f - 1f
-            data[base + 2 * plane + i] = ((p shr 16) and 0xFF) / 127.5f - 1f
+            data[base + i] = unit[p and 0xFF]
+            data[base + plane + i] = unit[(p shr 8) and 0xFF]
+            data[base + 2 * plane + i] = unit[(p shr 16) and 0xFF]
         }
         return resizedW
     }
 
-    private fun decode(probs: FloatArray, offset: Int, steps: Int, classes: Int, inputWidth: Int, contentWidth: Int): Recognition {
+    /**
+     * Greedy CTC: the most likely character at each step, repeats and blanks
+     * collapsed. The model ends in a softmax, so each step's scores sum to 1
+     * (RecognizerOutputTest checks this); once one is past [SURE] no other can
+     * beat it and the rest of the 18,710 are skipped. Most steps are blank and
+     * stop at the first score.
+     */
+    private fun decode(probs: FloatBuffer, offset: Int, steps: Int, classes: Int, inputWidth: Int, contentWidth: Int): Recognition {
         val chars = mutableListOf<Recognition.Glyph>()
         var confSum = 0.0
         var prev = -1
         // Each output step covers an equal slice of the padded input.
         val stepWidth = inputWidth / steps.toDouble()
         for (t in 0 until steps) {
+            val row = offset + t * classes
             var best = 0
-            var bestP = probs[offset + t * classes]
-            for (c in 1 until classes) {
-                val p = probs[offset + t * classes + c]
+            var bestP = probs.get(row)
+            var c = 1
+            while (bestP < SURE && c < classes) {
+                val p = probs.get(row + c)
                 if (p > bestP) { bestP = p; best = c }
+                c++
             }
             val end = ((t + 1) * stepWidth / contentWidth).coerceIn(0.0, 1.0)
             if (best != 0 && best != prev) {
@@ -119,5 +144,7 @@ class TextRecognizer(
     private companion object {
         const val IMAGE_H = 48
         const val IMAGE_W = 320
+        /** Past half, with room for the softmax's rounding (its sums are within 1e-5 of 1). */
+        const val SURE = 0.501f
     }
 }

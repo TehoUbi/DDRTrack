@@ -13,6 +13,9 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+/** A colour channel's 0-255 value scaled to [-1, 1], as PP-OCR's models take it; a table, not a division per pixel. */
+internal val UNIT_RANGE = FloatArray(256) { it / 127.5f - 1f }
+
 /** A text line's rotated rectangle: corners top-left, top-right, bottom-right, bottom-left. */
 data class Quad(val xs: DoubleArray, val ys: DoubleArray) {
     val width: Double get() = hypot(xs[1] - xs[0], ys[1] - ys[0])
@@ -67,12 +70,13 @@ class TextDetector(
         val chw = FloatBuffer.allocate(3 * w * h)
         val plane = w * h
         val data = chw.array()
+        val unit = UNIT_RANGE
         for (i in 0 until plane) {
             val p = input.argb[i]
             // BGR order, scaled to [-1, 1], as PaddleOCR feeds OpenCV images.
-            data[i] = (p and 0xFF) / 127.5f - 1f
-            data[plane + i] = ((p shr 8) and 0xFF) / 127.5f - 1f
-            data[2 * plane + i] = ((p shr 16) and 0xFF) / 127.5f - 1f
+            data[i] = unit[p and 0xFF]
+            data[plane + i] = unit[(p shr 8) and 0xFF]
+            data[2 * plane + i] = unit[(p shr 16) and 0xFF]
         }
         val prob = OnnxTensor.createTensor(env, chw, longArrayOf(1, 3, h.toLong(), w.toLong())).use { tensor ->
             session.run(mapOf(session.inputNames.first() to tensor)).use { out ->
@@ -118,33 +122,40 @@ class TextDetector(
      * (and so the rotated rectangle) depends on.
      */
     private fun regions(mask: BooleanArray, w: Int, h: Int): List<List<Pair<Double, Double>>> {
-        val label = IntArray(w * h)
+        val seen = BooleanArray(w * h)
         val out = mutableListOf<List<Pair<Double, Double>>>()
         val stack = IntArray(w * h)
-        var next = 0
+        // Per-row extent of the region being filled. A connected region covers
+        // a contiguous run of rows, so only [top, bottom] needs resetting.
+        val rowMin = IntArray(h) { Int.MAX_VALUE }
+        val rowMax = IntArray(h) { -1 }
         for (start in mask.indices) {
-            if (!mask[start] || label[start] != 0) continue
-            next++
-            val rowMin = HashMap<Int, Int>()
-            val rowMax = HashMap<Int, Int>()
+            if (!mask[start] || seen[start]) continue
             var top = 0
+            var yMin = start / w; var yMax = yMin
             stack[top++] = start
-            label[start] = next
+            seen[start] = true
             while (top > 0) {
                 val i = stack[--top]
                 val x = i % w; val y = i / w
-                rowMin[y] = min(rowMin[y] ?: x, x)
-                rowMax[y] = max(rowMax[y] ?: x, x)
+                if (x < rowMin[y]) rowMin[y] = x
+                if (x > rowMax[y]) rowMax[y] = x
+                if (y < yMin) yMin = y
+                if (y > yMax) yMax = y
                 for (dy in -1..1) for (dx in -1..1) {
                     val nx = x + dx; val ny = y + dy
                     if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
                     val j = ny * w + nx
-                    if (mask[j] && label[j] == 0) { label[j] = next; stack[top++] = j }
+                    if (mask[j] && !seen[j]) { seen[j] = true; stack[top++] = j }
                 }
             }
-            out += rowMin.keys.sorted().flatMap { y ->
-                listOf(rowMin.getValue(y).toDouble() to y.toDouble(), rowMax.getValue(y).toDouble() to y.toDouble())
+            val outline = ArrayList<Pair<Double, Double>>(2 * (yMax - yMin + 1))
+            for (y in yMin..yMax) {
+                outline += rowMin[y].toDouble() to y.toDouble()
+                outline += rowMax[y].toDouble() to y.toDouble()
+                rowMin[y] = Int.MAX_VALUE; rowMax[y] = -1
             }
+            out += outline
         }
         return out
     }
@@ -212,18 +223,21 @@ class TextDetector(
         val x1 = kotlin.math.ceil(corners.maxOf { it.first }).toInt().coerceIn(0, w - 1)
         val y0 = corners.minOf { it.second }.toInt().coerceIn(0, h - 1)
         val y1 = kotlin.math.ceil(corners.maxOf { it.second }).toInt().coerceIn(0, h - 1)
+        // Unpacked once: this test runs for every pixel of every box.
+        val cx = DoubleArray(corners.size) { corners[it].first }
+        val cy = DoubleArray(corners.size) { corners[it].second }
         var sum = 0.0; var n = 0
         for (y in y0..y1) for (x in x0..x1) {
-            if (inside(corners, x.toDouble(), y.toDouble())) { sum += prob[y * w + x]; n++ }
+            if (inside(cx, cy, x.toDouble(), y.toDouble())) { sum += prob[y * w + x]; n++ }
         }
         return if (n == 0) 0.0 else sum / n
     }
 
-    private fun inside(c: List<Pair<Double, Double>>, x: Double, y: Double): Boolean {
+    private fun inside(cx: DoubleArray, cy: DoubleArray, x: Double, y: Double): Boolean {
         var sign = 0
-        for (i in c.indices) {
-            val (ax, ay) = c[i]; val (bx, by) = c[(i + 1) % c.size]
-            val cross = (bx - ax) * (y - ay) - (by - ay) * (x - ax)
+        for (i in cx.indices) {
+            val j = (i + 1) % cx.size
+            val cross = (cx[j] - cx[i]) * (y - cy[i]) - (cy[j] - cy[i]) * (x - cx[i])
             if (abs(cross) < 1e-9) continue
             val s = if (cross > 0) 1 else -1
             if (sign == 0) sign = s else if (s != sign) return false

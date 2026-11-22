@@ -107,4 +107,29 @@ class SongCatalogTest {
             OcrLine.of("~Angelic mix~", Box(420, 80, 620, 112)))
         assertEquals("Healing Vision ～Angelic mix～", ResultScreenParser(catalog).parse(wrapped).title?.value)
     }
+
+    @Test
+    fun `skipping titles by length never changes the match`() {
+        // bestMatch skips songs whose length alone rules them out. Compare it
+        // with checking every song, on misreads of every 25th title.
+        val songs = catalog.songs
+        val keys = songs.map { SongCatalog.matchKey(it.title) }
+        val misreads = songs.filterIndexed { i, _ -> i % 25 == 0 }.flatMap { s ->
+            val t = s.title
+            listOf(t, t.drop(1), t.dropLast(2), t.replace('O', '0').replace('S', '5'), "$t NEW", t.take(t.length / 2))
+        }
+        for (text in misreads) {
+            val key = SongCatalog.matchKey(text)
+            if (key.length < 2) continue
+            var want: Song? = null
+            var wantSim = 0f
+            songs.forEachIndexed { i, song ->
+                val sim = SongCatalog.similarity(key, keys[i])
+                if (sim >= SongCatalog.DEFAULT_THRESHOLD && (want == null || sim > wantSim)) { want = song; wantSim = sim }
+            }
+            val got = catalog.bestMatch(listOf(text))
+            assertEquals(want, got?.song, text)
+            if (got != null) assertEquals(wantSim, got.similarity, text)
+        }
+    }
 }

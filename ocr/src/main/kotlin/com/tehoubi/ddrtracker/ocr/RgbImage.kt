@@ -66,35 +66,56 @@ class RgbImage(val width: Int, val height: Int, val argb: IntArray) {
     }
 
     private fun areaAverage(w: Int, h: Int): RgbImage {
-        val sx = width / w.toDouble()
-        val sy = height / h.toDouble()
+        val cols = Footprint(width, w)
+        val rows = Footprint(height, h)
         val out = IntArray(w * h)
         for (oy in 0 until h) {
-            val y0 = oy * sy
-            val y1 = y0 + sy
+            val y0 = rows.start[oy]
+            val yWeights = rows.weights[oy]
             for (ox in 0 until w) {
-                val x0 = ox * sx
-                val x1 = x0 + sx
+                val x0 = cols.start[ox]
+                val xWeights = cols.weights[ox]
                 var r = 0.0; var g = 0.0; var b = 0.0; var total = 0.0
-                var y = floor(y0).toInt()
-                while (y < ceil(y1) && y < height) {
-                    val wy = min(y1, y + 1.0) - max(y0, y.toDouble())
-                    var x = floor(x0).toInt()
-                    while (x < ceil(x1) && x < width) {
-                        val wgt = wy * (min(x1, x + 1.0) - max(x0, x.toDouble()))
-                        val p = argb[y * width + x]
+                for (j in yWeights.indices) {
+                    val wy = yWeights[j]
+                    val row = (y0 + j) * width + x0
+                    for (i in xWeights.indices) {
+                        val wgt = wy * xWeights[i]
+                        val p = argb[row + i]
                         r += wgt * ((p shr 16) and 0xFF)
                         g += wgt * ((p shr 8) and 0xFF)
                         b += wgt * (p and 0xFF)
                         total += wgt
-                        x++
                     }
-                    y++
                 }
                 out[oy * w + ox] = pack(r / total, g / total, b / total)
             }
         }
         return RgbImage(w, h, out)
+    }
+
+    /**
+     * Which source pixels each of [outSize] output pixels covers along one
+     * axis, and by how much. Worked out once per axis rather than per pixel.
+     */
+    private class Footprint(inSize: Int, outSize: Int) {
+        val start = IntArray(outSize)
+        val weights = Array(outSize) { DoubleArray(0) }
+
+        init {
+            val scale = inSize / outSize.toDouble()
+            for (o in 0 until outSize) {
+                val a = o * scale
+                val b = a + scale
+                val first = floor(a).toInt()
+                val end = min(ceil(b).toInt(), inSize)
+                start[o] = first
+                weights[o] = DoubleArray(max(0, end - first)) { k ->
+                    val p = first + k
+                    min(b, p + 1.0) - max(a, p.toDouble())
+                }
+            }
+        }
     }
 
     private fun bilinear(w: Int, h: Int): RgbImage {
@@ -118,12 +139,14 @@ class RgbImage(val width: Int, val height: Int, val argb: IntArray) {
         val ax = cx - x0; val ay = cy - y0
         val p00 = argb[y0 * width + x0]; val p10 = argb[y0 * width + x1]
         val p01 = argb[y1 * width + x0]; val p11 = argb[y1 * width + x1]
-        fun channel(shift: Int): Double {
-            val top = ((p00 shr shift) and 0xFF) * (1 - ax) + ((p10 shr shift) and 0xFF) * ax
-            val bottom = ((p01 shr shift) and 0xFF) * (1 - ax) + ((p11 shr shift) and 0xFF) * ax
-            return top * (1 - ay) + bottom * ay
-        }
-        return pack(channel(16), channel(8), channel(0))
+        return pack(lerp(p00, p10, p01, p11, 16, ax, ay), lerp(p00, p10, p01, p11, 8, ax, ay), lerp(p00, p10, p01, p11, 0, ax, ay))
+    }
+
+    // A plain function rather than a closure: this runs once per pixel of every text line.
+    private fun lerp(p00: Int, p10: Int, p01: Int, p11: Int, shift: Int, ax: Double, ay: Double): Double {
+        val top = ((p00 shr shift) and 0xFF) * (1 - ax) + ((p10 shr shift) and 0xFF) * ax
+        val bottom = ((p01 shr shift) and 0xFF) * (1 - ax) + ((p11 shr shift) and 0xFF) * ax
+        return top * (1 - ay) + bottom * ay
     }
 
     private fun pack(r: Double, g: Double, b: Double): Int =

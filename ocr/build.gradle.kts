@@ -54,6 +54,8 @@ tasks.test {
     // Photos of real result screens, if present (they are large and optional).
     systemProperty("samples.dir", rootProject.file("samples").absolutePath)
     maxHeapSize = "3g"
+    // For OcrBench: e.g. OCR_JVMARGS=-Xint to time the reader without the JIT.
+    System.getenv("OCR_JVMARGS")?.let { jvmArgs(it.split(" ")) }
 }
 
 dependencies {
