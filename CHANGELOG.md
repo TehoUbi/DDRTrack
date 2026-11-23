@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.2 (2026-11-22)
+
+- Scan has a **Files** button next to **Gallery**. The gallery (Android's
+  photo picker) only lists photos Android's media index has finished
+  with, so a photo just copied to the phone, or dragged onto an emulator,
+  could be missing or handed over cut short ("Input was incomplete"). The
+  file browser reads storage directly.
+- A failed release build now shows its reason on the run's summary page
+  and keeps the test reports.
+
 ## 1.2.1 (2026-11-22)
 
 Faster photo reading, with exactly the same results.

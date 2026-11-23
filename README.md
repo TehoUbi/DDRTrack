@@ -259,11 +259,13 @@ Server configuration comes from the environment: `DATABASE_URL`,
 ## Trying it without a cabinet
 
 - **Scanning:** five photos of real result screens (`samples/sample1.jpg`
-  to `sample5.jpg`) work with **Scan → From gallery**. Copy them to the
-  device with `adb push`, then have Android re-index them
-  (`adb shell content call --uri content://media/ --method scan_volume --arg external_primary`):
-  a photo indexed while it was still being copied is handed to apps cut
-  short, and fails with "Input was incomplete".
+  to `sample5.jpg`) work with **Scan → Files** (or **Gallery**). Copy them
+  to the device with `adb push` or by dragging them onto the emulator.
+  **Files** reads them straight from storage. **Gallery** (the photo picker)
+  only shows what Android's media index has finished with: a just-copied
+  photo can be missing, or handed to the app cut short ("Input was
+  incomplete"), until it's re-indexed with
+  `adb shell content call --uri content://media/ --method scan_volume --arg external_primary`.
 - **History and progress:** `samples/sample-backup.json` holds a year of
   plays (about 1,200, real charts at their real levels) for
   **Settings → Restore from a file**.

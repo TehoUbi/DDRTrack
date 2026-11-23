@@ -108,6 +108,14 @@ fun ScanScreen(
         uri?.let(viewModel::onImagePicked)
     }
     val openGallery = { pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+    // The photo picker only lists what Android's media index has finished
+    // indexing; a file still marked pending (an image just copied to the
+    // device, e.g. dragged onto an emulator) is hidden there. The file browser
+    // reads storage directly, so it finds those too.
+    val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::onImagePicked)
+    }
+    val openFiles = { pickFile.launch(arrayOf("image/*")) }
     LaunchedEffect(Unit) {
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
@@ -126,7 +134,10 @@ fun ScanScreen(
                 },
                 actions = {
                     TextButton(onClick = openGallery, enabled = !uiState.isProcessing) {
-                        Text("From gallery", color = Color.White)
+                        Text("Gallery", color = Color.White)
+                    }
+                    TextButton(onClick = openFiles, enabled = !uiState.isProcessing) {
+                        Text("Files", color = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

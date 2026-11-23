@@ -36,7 +36,25 @@ jobs:
           printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
 
-      - run: ./gradlew :core:test :ocr:test :app:testDebugUnitTest :app:assembleRelease
+      - name: Test and build the release APK
+        run: |
+          set -o pipefail
+          ./gradlew :core:test :ocr:test :app:testDebugUnitTest :app:assembleRelease 2>&1 | tee build.log || {
+            # Put the reason on the run's summary page, where it can be read
+            # without opening the full log.
+            reason=$(grep -A12 "What went wrong" build.log | head -15 | tr '\n' ' ')
+            failed=$(grep -E "FAILED$" build.log | head -10 | tr '\n' ' ')
+            echo "::error title=Build failed::${failed} ${reason}"
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: release-test-reports
+          path: |
+            */build/reports/tests
+            build.log
 
       - name: Name the APK and pull the notes from CHANGELOG.md
         run: |
