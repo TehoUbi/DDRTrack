@@ -92,6 +92,28 @@ androidComponents {
 
 tasks.named("preBuild") { dependsOn(":ocr:downloadOcrModels") }
 
+// Robolectric runs the app's tests on a real Android framework jar, which it
+// otherwise downloads from Maven Central the first time, with no retry. One
+// failed download failed 28 tests in a release build. Gradle fetches the jars
+// instead (with retries, cached by CI like any dependency) and Robolectric
+// runs offline. Android 14 is what the tests ask for with @Config(sdk = [34]);
+// tests without it run on the target SDK, Android 15.
+// One configuration per jar: within one, Gradle would keep only the newest version.
+val robolectricAndroid = listOf("14-robolectric-10818077-i7", "15-robolectric-12650502-i7").map { version ->
+    configurations.create("robolectricAndroid${version.substringBefore('-')}") { isTransitive = false }.also {
+        dependencies.add(it.name, "org.robolectric:android-all-instrumented:$version")
+    }
+}
+val robolectricJars = tasks.register<Sync>("robolectricJars") {
+    from(robolectricAndroid)
+    into(layout.buildDirectory.dir("robolectric-jars"))
+}
+tasks.withType<Test>().configureEach {
+    dependsOn(robolectricJars)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", layout.buildDirectory.dir("robolectric-jars").get().asFile.absolutePath)
+}
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
