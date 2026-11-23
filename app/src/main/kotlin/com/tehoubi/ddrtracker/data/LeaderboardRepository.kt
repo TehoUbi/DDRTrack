@@ -49,7 +49,9 @@ class LeaderboardRepository @Inject constructor(
     }
 
     suspend fun testConnection(url: String): Result<HealthResponse> = runCatching {
-        client.health(LeaderboardClient.normalizeBaseUrl(url) ?: throw IllegalArgumentException("Not a valid URL"))
+        val base = LeaderboardClient.normalizeBaseUrl(url) ?: throw IllegalArgumentException("Not a valid URL")
+        LeaderboardClient.unreachableReason(base)?.let { throw IllegalArgumentException(it) }
+        client.health(base)
     }
 
     /**
@@ -90,6 +92,7 @@ class LeaderboardRepository @Inject constructor(
     /** The normalised URL, refusing plain HTTP to anything but a private network (the token would travel in the clear). */
     private fun secureBase(url: String): String {
         val base = LeaderboardClient.normalizeBaseUrl(url) ?: throw IllegalArgumentException("Not a valid URL")
+        LeaderboardClient.unreachableReason(base)?.let { throw IllegalArgumentException(it) }
         if (!LeaderboardClient.isSafeToUse(base)) {
             throw IllegalArgumentException("Use an https:// address for a server on the internet; plain http would send your login unencrypted")
         }

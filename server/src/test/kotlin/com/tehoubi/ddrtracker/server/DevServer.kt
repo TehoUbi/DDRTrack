@@ -25,7 +25,8 @@ fun main(args: Array<String>) {
     val db = Database(postgres.postgresDatabase).also { it.migrate() }
     val services = Services(db, ServerConfig(registrationsPerHour = 1000))
     if ("--seed-demo" in args) runBlocking { seedDemo(services) }
-    println("Leaderboard server on http://0.0.0.0:8080 (embedded PostgreSQL on :54329, data in ${dir.absolutePath})")
+    println("Leaderboard server listening on port 8080 (embedded PostgreSQL on :54329, data in ${dir.absolutePath})")
+    println("  In the app, use http://10.0.2.2:8080 from an emulator, or http://<this computer's Wi-Fi address>:8080 from a phone.")
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") { module(services) }.start(wait = true)
 }
 

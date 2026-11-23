@@ -77,4 +77,11 @@ class LeaderboardClientTest {
         listOf("http://ddr.example.com", "http://203.0.113.7:8080", "http://172.32.0.1", "http://[2001:db8::1]")
             .forEach { assertFalse(LeaderboardClient.isSafeToUse(it), it) }
     }
+
+    @Test
+    fun `the address a server listens on gets a hint instead of an https warning`() {
+        assertTrue(LeaderboardClient.unreachableReason("http://0.0.0.0:8080")!!.contains("10.0.2.2"))
+        assertTrue(LeaderboardClient.unreachableReason("http://[::]:8080") != null)
+        assertEquals(null, LeaderboardClient.unreachableReason("http://10.0.2.2:8080"))
+    }
 }

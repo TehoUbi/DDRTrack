@@ -171,6 +171,19 @@ class LeaderboardClient @Inject constructor() {
                 (a == 169 && b == 254) || (a == 100 && b in 64..127)
         }
 
+        /**
+         * Why [base] can't be connected to at all, if that's the case: 0.0.0.0
+         * (or ::) is what a server prints when it listens on every interface,
+         * and is easy to copy into the app.
+         */
+        fun unreachableReason(base: String): String? {
+            val host = base.toHttpUrlOrNull()?.host ?: return null
+            if (host != "0.0.0.0" && host != "::") return null
+            return "$host is where the server listens, not an address to connect to. " +
+                "From an emulator use http://10.0.2.2:8080; from a phone, your computer's Wi-Fi address, " +
+                "like http://192.168.1.20:8080."
+        }
+
         /** "192.168.1.5:8080/" -> "http://192.168.1.5:8080", or null if unusable. */
         fun normalizeBaseUrl(raw: String): String? {
             val trimmed = raw.trim().trimEnd('/')
