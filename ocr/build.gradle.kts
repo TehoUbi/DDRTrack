@@ -51,7 +51,7 @@ val downloadOcrModels by tasks.registering {
 tasks.test {
     dependsOn(downloadOcrModels)
     systemProperty("ocr.models", modelsDir.asFile.absolutePath)
-    // Photos of real result screens, if present (they are large and optional).
+    // The photos of real result screens that RealPhotoTest reads.
     systemProperty("samples.dir", rootProject.file("samples").absolutePath)
     maxHeapSize = "3g"
     // For OcrBench: e.g. OCR_JVMARGS=-Xint to time the reader without the JIT.

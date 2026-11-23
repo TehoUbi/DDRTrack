@@ -42,7 +42,7 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      # :ocr downloads the PP-OCR models; its photo tests run when samples/ has the photos.
+      # :ocr downloads the PP-OCR models and reads the five real photos in samples/.
       - run: ./gradlew :ocr:test :app:testDebugUnitTest :app:verifyRoborazziDebug :app:assembleDebug
       - uses: actions/upload-artifact@v4
         with:

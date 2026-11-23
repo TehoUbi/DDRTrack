@@ -258,9 +258,12 @@ Server configuration comes from the environment: `DATABASE_URL`,
 
 ## Trying it without a cabinet
 
-- **Scanning:** photos of real result screens (`samples/sample*.jpg`, when
-  present) work with **Scan → From gallery**. On an emulator, drag them
-  onto its window first.
+- **Scanning:** five photos of real result screens (`samples/sample1.jpg`
+  to `sample5.jpg`) work with **Scan → From gallery**. Copy them to the
+  device with `adb push`, then have Android re-index them
+  (`adb shell content call --uri content://media/ --method scan_volume --arg external_primary`):
+  a photo indexed while it was still being copied is handed to apps cut
+  short, and fails with "Input was incomplete".
 - **History and progress:** `samples/sample-backup.json` holds a year of
   plays (about 1,200, real charts at their real levels) for
   **Settings → Restore from a file**.
@@ -286,8 +289,10 @@ Server configuration comes from the environment: `DATABASE_URL`,
   without the models.
 - `ocr`: the photos in `samples/` read end to end, exactly as the app
   reads them: same models, crops, parser and validator. Every field of
-  every screen has to come out right, Japanese titles included. Skipped
-  when the photos aren't there.
+  every screen has to come out right, Japanese titles included. The two
+  largest photos are stored at 4096 px, the size the app reads photos at,
+  re-encoded without chroma subsampling; every field reads exactly as from
+  the originals.
 - `app`: Room repository and session grouping, migrations, leaderboard
   upload and account backup against MockWebServer (including the
   edit-during-upload race, paged restores and deletions from another
